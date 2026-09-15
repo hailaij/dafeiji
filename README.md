@@ -4,22 +4,6 @@
 
 **当前版本:v1.1.0**
 
-## 更新日志
-
-### [1.1.0] - 2026-09-15
-
-#### 新增
-- 新增 HUD 暂停按钮,触屏/移动端可一键暂停(桌面保留 P / Esc)
-
-#### 修复
-- 修复 README 因编码问题导致的正文乱码(统一 UTF-8 无 BOM + LF)
-
-#### 优化
-- Android 打包工具链可移植化(自带 JDK17 + Android SDK 说明),支持本地一键构建
-
-#### 变更
-- 添加 MIT License;README 增加 GitHub Pages 在线试玩链接
-
 ## 快速开始
 
 ### 网页版
@@ -125,3 +109,19 @@ dafeiji/
 ```
 
 详细设计见 `design.md`;Android 打包细节见 `android/README.md`。样式规范:cyberpunk 霓虹(青=己方 / 品红·红·橙=敌方 / 黄=道具与重装坦克)。
+
+## 更新日志
+
+### [1.1.0] - 2026-09-15
+
+#### 新增
+- 新增 HUD 暂停按钮,触屏/移动端可一键暂停(桌面保留 P / Esc)
+
+#### 修复
+- 修复 README 因编码问题导致的正文乱码(统一 UTF-8 无 BOM + LF)
+
+#### 优化
+- Android 打包工具链可移植化(自带 JDK17 + Android SDK 说明),支持本地一键构建
+
+#### 变更
+- 添加 MIT License;README 增加 GitHub Pages 在线试玩链接
