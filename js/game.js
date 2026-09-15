@@ -945,7 +945,7 @@
     /* Boss */
     if (boss) {
       if (!(boss.flash > 0 && Math.floor(boss.flash * 20) % 2 === 0))
-        R.drawC(ctx, R.sprite('boss'), boss.x, boss.y);
+        R.drawC(ctx, R.sprite('boss-' + boss.kind) || R.sprite('boss'), boss.x, boss.y);
       R.drawBossBar(ctx, W, boss);
     }
 

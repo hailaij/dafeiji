@@ -175,15 +175,28 @@
     /* ---- v1.2 Boss 图鉴精灵(11 种,按配色区分 + 标志性形状) ---- */
     S['boss'] = S['boss'] || S.boss;
     S['boss-hive'] = makeSprite(128, function (g) {
+      /* 蜂巢母舰:双层六边形外壳 + 六个发光蜂巢胞室,琥珀色调区分经典首领 */
       poly(g, hexPts(44, 0));
-      neon(g, C.magenta, 'rgba(255,0,229,0.10)', 4);
+      neon(g, C.magenta, 'rgba(255,0,229,0.08)', 4);
+      g.shadowColor = C.yellow; g.shadowBlur = 10;
+      g.strokeStyle = C.yellow; g.lineWidth = 2;
       var k;
       for (k = 0; k < 6; k++) {
         var a = Math.PI / 6 + k * Math.PI / 3;
-        g.beginPath();
-        g.arc(Math.cos(a) * 30, Math.sin(a) * 30, 9, 0, Math.PI * 2);
+        var cx = Math.cos(a) * 28, cy = Math.sin(a) * 28;
+        g.save();
+        g.translate(cx, cy);
+        g.rotate(a);
+        poly(g, hexPts(10, 0));
         g.stroke();
+        g.fillStyle = 'rgba(255,230,0,0.18)';
+        g.fill();
+        g.restore();
       }
+      g.shadowColor = C.orange; g.shadowBlur = 12;
+      g.strokeStyle = C.orange; g.lineWidth = 2;
+      g.beginPath(); g.arc(0, 0, 10, 0, Math.PI * 2); g.stroke();
+      g.shadowBlur = 0;
     });
     S['boss-phantom'] = makeSprite(128, function (g) {
       poly(g, [[0, -44], [30, -10], [18, 40], [-18, 40], [-30, -10]]);
