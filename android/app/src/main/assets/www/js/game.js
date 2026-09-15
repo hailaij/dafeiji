@@ -36,6 +36,7 @@
 
   var dom = {};
   var HISCORE_KEY = 'neon-strike-hiscore';
+  var pauseBtn;
 
   /* ---- 对象池构造器 ---- */
   function makeBullet() {
@@ -51,6 +52,7 @@
       'overlay', 'panel-start', 'panel-pause', 'panel-over', 'panel-victory', 'panel-upgrade',
       'final-score', 'victory-score', 'new-record', 'victory-record', 'btn-mute', 'mode-tag', 'upgrade-cards'];
     for (var i = 0; i < ids.length; i++) dom[ids[i]] = document.getElementById(ids[i]);
+    pauseBtn = document.getElementById('btn-pause');
   }
 
   function pad(n, w) { var s = String(Math.floor(n)); while (s.length < (w || 6)) s = '0' + s; return s; }
@@ -81,6 +83,8 @@
     ['panel-start', 'panel-pause', 'panel-over', 'panel-victory', 'panel-upgrade'].forEach(function (p) {
       dom[p].classList.toggle('hidden', p !== name);
     });
+    /* 暂停按钮只在 playing 状态显示 */
+    if (pauseBtn) pauseBtn.style.display = (STATE === 'playing') ? '' : 'none';
   }
 
   /* ---- 尺寸 / DPR ---- */
@@ -481,6 +485,13 @@
     document.getElementById('btn-victory-restart').addEventListener('click', function () { startGame(lastMode || L.ENDLESS); });
     document.getElementById('btn-menu-victory').addEventListener('click', goMenu);
     document.getElementById('btn-mute').addEventListener('click', function () { A.toggle(); syncMuteBtn(); });
+
+    /* 暂停按钮(右上角) - 支持触屏和鼠标 */
+    document.getElementById('btn-pause').addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (STATE === 'playing') pause();
+      else if (STATE === 'paused') resume();
+    });
 
     /* 难度选择按钮 */
     var diffBtns = document.querySelectorAll('.diff-btn');

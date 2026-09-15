@@ -257,6 +257,33 @@ html, body {
   box-shadow: 0 0 20px rgba(255,0,229,0.45);
   transform: translateX(4px);
 }
+/* ---- 暂停按钮 (右上角 HUD) ---- */
+.pause-btn {
+  position: fixed; top: 12px; right: 16px;
+  width: 36px; height: 36px; border-radius: 6px;
+  pointer-events: auto;
+  background: rgba(10,10,20,0.6);
+  border: 1px solid rgba(0,240,255,0.4);
+  color: var(--cyan);
+  font-size: 15px; cursor: pointer;
+  text-shadow: 0 0 6px rgba(0,240,255,0.6);
+  transition: all .15s;
+  z-index: 10;
+}
+.pause-btn:hover {
+  background: rgba(0,240,255,0.12);
+  box-shadow: 0 0 14px rgba(0,240,255,0.4);
+}
+
+/* ---- 暂停按钮 (右上角 HUD,移动端更大更易点) ---- */
+@media (pointer: coarse), (max-width: 640px) {
+  .pause-btn {
+    width: 44px; height: 44px;
+    font-size: 17px;
+    top: 8px;
+    right: 8px;
+  }
+}
 .perk-label {
   font-size: 17px; font-weight: 700; letter-spacing: 0.06em;
   color: var(--magenta);
