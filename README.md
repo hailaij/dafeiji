@@ -19,10 +19,10 @@
 
 ```powershell
 # 1. 同步最新游戏资产到 android 工程
-cd D:\ai\biancheng\worksplace\dafeiji
+cd <仓库根>
 .\sync-assets.ps1
 
-# 2. 一键构建 APK(需先安装本地工具链,详见 android/README.md)
+# 2. 一键构建 APK(需先准备 JDK17 + Android SDK,详见 android/README.md)
 cd android
 .\build-local.ps1
 ```

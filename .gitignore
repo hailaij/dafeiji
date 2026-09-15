@@ -9,5 +9,6 @@ android/local.properties
 # APK 二进制不进 git,发版走 GitHub Releases
 android/dist/*.apk
 
-# 临时脚本
-_gen_icons.py
+# 临时产物
+*.log
+Thumbs.db
