@@ -239,15 +239,15 @@
       firePlayerBullet(player.x - 7, player.y - 12, 0, -sp);
       firePlayerBullet(player.x + 7, player.y - 12, 0, -sp);
     } else {
-      firePlayerBullet(player.x - 8, player.y - 12, 0, -sp);
-      firePlayerBullet(player.x + 8, player.y - 12, 0, -sp);
-      firePlayerBullet(player.x - 16, player.y - 8, -sp * 0.28, -sp * 0.96);
-      firePlayerBullet(player.x + 16, player.y - 8, sp * 0.28, -sp * 0.96);
+      firePlayerBullet(player.x - 7, player.y - 12, 0, -sp);
+      firePlayerBullet(player.x + 7, player.y - 12, 0, -sp);
+      firePlayerBullet(player.x - 14, player.y - 10, -sp * 0.10, -sp * 0.995);
+      firePlayerBullet(player.x + 14, player.y - 10, sp * 0.10, -sp * 0.995);
     }
-    /* 肉鸽 spread:额外外斜弹道 */
+    /* 肉鸽 spread:额外外斜弹道 (收束散射角度,提升有效打击面) */
     for (var s = 0; s < (player.spread || 0); s++) {
-      var off = 22 + s * 8;
-      var ang = 0.42 + s * 0.14;
+      var off = 18 + s * 6;
+      var ang = 0.16 + s * 0.08;
       firePlayerBullet(player.x - off, player.y - 8, -sp * Math.sin(ang), -sp * Math.cos(ang));
       firePlayerBullet(player.x + off, player.y - 8, sp * Math.sin(ang), -sp * Math.cos(ang));
     }
