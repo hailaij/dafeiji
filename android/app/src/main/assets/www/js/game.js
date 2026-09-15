@@ -37,6 +37,7 @@
   var empCdUntil = 0;      /* EMP 冷却截止时刻(performance.now 秒) */
   var empWave = null;      /* EMP 冲击波动画 {x,y,r,maxR,t0,dur} */
   var empStunUntil = 0;    /* 敌机全体眩晕截止(简化:全场统一计时) */
+  var empBtn = null;
 
   var dom = {};
   var HISCORE_KEY = 'neon-strike-hiscore';
@@ -54,7 +55,7 @@
   function cacheDom() {
     var ids = ['hud-score', 'hud-wave', 'hud-combo', 'hud-weapon', 'hud-shield', 'hud-lives', 'hud-hp', 'hud-buff',
       'overlay', 'panel-start', 'panel-pause', 'panel-over', 'panel-victory', 'panel-upgrade',
-      'final-score', 'victory-score', 'new-record', 'victory-record', 'btn-mute', 'mode-tag', 'upgrade-cards',
+      'final-score', 'victory-score', 'new-record', 'victory-record', 'mode-tag', 'upgrade-cards',
       'btn-emp', 'emp-cd'];
     for (var i = 0; i < ids.length; i++) dom[ids[i]] = document.getElementById(ids[i]);
     pauseBtn = document.getElementById('btn-pause');
@@ -109,6 +110,8 @@
     });
     /* 暂停按钮只在 playing 状态显示 */
     if (pauseBtn) pauseBtn.style.display = (STATE === 'playing') ? '' : 'none';
+    /* EMP 技能钮只在 playing 状态显示 */
+    if (empBtn) empBtn.style.display = (STATE === 'playing') ? 'block' : 'none';
   }
 
   /* ---- 尺寸 / DPR ---- */
@@ -470,8 +473,8 @@
     rogueChoices = [];
     empCdUntil = 0; empWave = null; empStunUntil = 0;
     nextWave();
-    setPanel('none');
     STATE = 'playing';
+    setPanel('none');
     updateHUD();
   }
 
@@ -540,7 +543,7 @@
   }
 
 /* ---- v1.2 主动技能: EMP 电磁脉冲 ----
-   * 冷却 20s(empPerk 可缩短至 ~14s);范围伤害+眩晕+清屏敌弹 */
+   * 冷却 20s;范围伤害+眩晕+清屏敌弹 */
   function triggerEMP() {
     if (STATE !== 'playing' || !player) return;
     if (now < empCdUntil) return;
@@ -561,7 +564,7 @@
     if (boss && !boss.dead) {
       var bdx = boss.x - player.x, bdy = boss.y - player.y;
       if (bdx * bdx + bdy * bdy <= pm.radius * pm.radius) {
-        boss.hp -= pm.dmg * 0.5; boss.flash = 0.12;
+        boss.hp -= pm.dmg * 0.35; boss.flash = 0.12;
         boss.fireCd += pm.stun * 0.6;  /* Boss 免疫全额眩晕,延长射击间隔 */
         if (boss.hp <= 0) { boss.dead = true; killEnemy(boss); boss = null; bossKilled = true; }
       }
@@ -591,7 +594,6 @@
       if (k === 'p' || k === 'escape') {
         if (STATE === 'playing') pause(); else if (STATE === 'paused') resume();
       }
-      if (k === 'm') { A.toggle(); syncMuteBtn(); }
       if (k === 'e') triggerEMP();
       if (k === 'enter') {
         if (STATE === 'start') startGame(lastMode || L.ENDLESS);
@@ -630,10 +632,8 @@
     document.getElementById('btn-menu-over').addEventListener('click', goMenu);
     document.getElementById('btn-victory-restart').addEventListener('click', function () { startGame(lastMode || L.ENDLESS); });
     document.getElementById('btn-menu-victory').addEventListener('click', goMenu);
-    document.getElementById('btn-mute').addEventListener('click', function () { A.toggle(); syncMuteBtn(); });
-
     /* v1.2: EMP 技能按钮(右下角) */
-    var empBtn = document.getElementById('btn-emp');
+    empBtn = document.getElementById('btn-emp');
     if (empBtn) {
       empBtn.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -663,11 +663,6 @@
   }
 
   function startBtn() { A.init(); startGame(lastMode || L.ENDLESS); }
-  function syncMuteBtn() {
-    var b = dom['btn-mute'];
-    b.classList.toggle('muted', A.isMuted());
-    b.textContent = A.isMuted() ? '\u266a\u0338' : '\u266a';
-  }
   function syncDiffBtns() {
     var diffBtns = document.querySelectorAll('.diff-btn');
     for (var i = 0; i < diffBtns.length; i++) {

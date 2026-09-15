@@ -279,14 +279,14 @@
 
   /* ---- 主动技能:EMP 电磁脉冲(键盘 E / 技能钮) ----
    * 冷却 20s;对范围内敌机造成伤害+眩晕,清除屏上敌弹。
-   * radius = min(W,H)*0.42*(1+emp) ; dmg = 6+emp*3 ; stun 2s*(1+emp)
+   * radius = min(W,H)*0.28*(1+emp) ; dmg = 3+emp*2 ; stun 1.2s*(1+emp)
    */
   Logic.EMP_COOLDOWN = 20;
   Logic.empParams = function (emp, size) {
     return {
-      radius: Math.round(Math.max(size, 200) * 0.42 * (1 + (emp || 0))),
-      dmg: 6 + (emp || 0) * 3,
-      stun: 2 * (1 + (emp || 0))
+      radius: Math.round(Math.max(size, 200) * 0.28 * (1 + (emp || 0))),
+      dmg: 3 + (emp || 0) * 2,
+      stun: 1.2 * (1 + (emp || 0))
     };
   };
 
