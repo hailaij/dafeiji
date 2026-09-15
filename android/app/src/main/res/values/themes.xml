@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.NeonStrike" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">#05060e</item>
+        <item name="android:statusBarColor">#05060e</item>
+        <item name="android:navigationBarColor">#05060e</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+</resources>

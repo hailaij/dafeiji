@@ -1,0 +1,13 @@
+# 构建产物与机器相关文件
+android/app/build/
+android/.gradle/
+android/build/
+android/local.properties
+.gradle/
+*.log
+
+# APK 二进制不进 git,发版走 GitHub Releases
+android/dist/*.apk
+
+# 临时脚本
+_gen_icons.py

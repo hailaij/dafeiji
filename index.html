@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>NEON STRIKE · 霓虹突袭</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#080c1a">
+<!-- iOS PWA 支持:添加到主屏幕即全屏离线运行 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NEON STRIKE">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="hud">
+    <div class="hud-left">
+      <span class="stat mode-tag" id="mode-tag">无限模式</span>
+      <span class="stat" id="hud-score">000000</span>
+      <span class="stat" id="hud-wave">WAVE 01</span>
+      <span class="stat" id="hud-combo">COMBO ×1</span>
+    </div>
+    <div class="hud-right">
+      <span class="stat" id="hud-weapon">PWR 1</span>
+      <span class="stat" id="hud-shield">SHIELD 0</span>
+      <span class="stat" id="hud-lives">LIVES 3</span>
+      <span class="stat" id="hud-hp">HP 3</span>
+    </div>
+    <button id="btn-mute" class="mute" title="静音/取消静音(M)">♪</button>
+  </div>
+
+  <div id="overlay">
+    <div class="panel" id="panel-start">
+      <h1 class="glitch" data-text="NEON STRIKE">NEON STRIKE</h1>
+      <p class="sub">霓虹突袭 · 纵版射击</p>
+      <div class="diff-select">
+        <span class="diff-label">难度</span>
+        <div class="diff-btns">
+          <button class="diff-btn" data-diff="easy">简单</button>
+          <button class="diff-btn active" data-diff="normal">中等</button>
+          <button class="diff-btn" data-diff="hard">困难</button>
+        </div>
+      </div>
+      <div class="mode-select">
+        <button class="btn mode-btn" data-mode="endless">无限模式</button>
+        <button class="btn mode-btn" data-mode="campaign">闯关模式</button>
+        <button class="btn mode-btn roguelike" data-mode="roguelike">肉鸽模式</button>
+      </div>
+      <p class="hint">无限: 波次无尽追求高分 · 闯关: 10 关通关<br>肉鸽: 每 3 波三选一强化,永久叠加<br><br>移动: WASD / 方向键 / 鼠标 / 触屏<br>自动开火 · P 或 Esc 暂停 · M 静音</p>
+    </div>
+    <div class="panel hidden" id="panel-pause">
+      <h1>已暂停</h1>
+      <div class="panel-actions">
+        <button class="btn" id="btn-resume">▶ 继续</button>
+        <button class="btn" id="btn-pause-restart">↻ 重新开始</button>
+        <button class="btn btn-ghost" id="btn-pause-menu">⌂ 返回主菜单</button>
+      </div>
+    </div>
+    <div class="panel hidden" id="panel-over">
+      <h1 class="glitch" data-text="GAME OVER">GAME OVER</h1>
+      <p class="sub">得分 <span id="final-score">0</span></p>
+      <p class="sub new-record hidden" id="new-record">★ 新纪录</p>
+      <div class="panel-actions">
+        <button class="btn" id="btn-restart">↻ 重新开始</button>
+        <button class="btn btn-ghost" id="btn-menu-over">⌂ 返回主菜单</button>
+      </div>
+    </div>
+    <div class="panel hidden" id="panel-victory">
+      <h1 class="glitch" data-text="VICTORY">VICTORY</h1>
+      <p class="sub">通关！最终得分 <span id="victory-score">0</span></p>
+      <p class="sub new-record hidden" id="victory-record">★ 新纪录</p>
+      <div class="panel-actions">
+        <button class="btn" id="btn-victory-restart">↻ 再来一局</button>
+        <button class="btn btn-ghost" id="btn-menu-victory">⌂ 返回主菜单</button>
+      </div>
+    </div>
+    <div class="panel hidden" id="panel-upgrade">
+      <h1 class="upgrade-title">选择强化</h1>
+      <p class="sub">三选一 · 永久生效</p>
+      <div id="upgrade-cards"></div>
+    </div>
+  </div>
+
+  <div id="scanlines"></div>
+
+  <script src="js/core.js"></script>
+  <script src="js/logic.js"></script>
+  <script src="js/entities.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/game.js"></script>
+  <script>
+    // PWA Service Worker 注册(仅 http/https 环境,file:// 下自动跳过)
+    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
