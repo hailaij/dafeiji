@@ -5,7 +5,7 @@
   'use strict';
   var Logic = {};
 
-  Logic.VERSION = '1.2.0';
+  Logic.VERSION = '1.2.1';
   Logic.COMBO_WINDOW_MS = 2000;
   Logic.WEAPON_MAX = 3;
   Logic.HP_MAX = 3;
@@ -30,9 +30,9 @@
 
   /* ---- 难度档位:影响血量/速度/弹速/出怪节奏与玩家命数 ---- */
   Logic.DIFFICULTIES = {
-    easy:   { id: 'easy',   label: '简单', lives: 5, hpMul: 0.70, speedMul: 0.82, bulletSpeedMul: 0.78, spawnIntervalMul: 1.35, scoreMul: 1.0, aggroMul: 0.40 },
-    normal: { id: 'normal', label: '中等', lives: 3, hpMul: 1.00, speedMul: 1.00, bulletSpeedMul: 1.00, spawnIntervalMul: 1.00, scoreMul: 1.0, aggroMul: 0.65 },
-    hard:   { id: 'hard',   label: '困难', lives: 2, hpMul: 1.45, speedMul: 1.22, bulletSpeedMul: 1.30, spawnIntervalMul: 0.78, scoreMul: 1.3, aggroMul: 1.00 }
+    easy:   { id: 'easy',   label: '简单', lives: 5, hpMul: 0.70, speedMul: 0.82, bulletSpeedMul: 0.78, spawnIntervalMul: 1.35, scoreMul: 1.0, aggroMul: 0.40, dropRate: 0.16 },
+    normal: { id: 'normal', label: '中等', lives: 3, hpMul: 1.00, speedMul: 1.00, bulletSpeedMul: 1.00, spawnIntervalMul: 1.00, scoreMul: 1.0, aggroMul: 0.45, dropRate: 0.12 },
+    hard:   { id: 'hard',   label: '困难', lives: 2, hpMul: 1.45, speedMul: 1.22, bulletSpeedMul: 1.30, spawnIntervalMul: 0.78, scoreMul: 1.3, aggroMul: 1.00, dropRate: 0.10 }
   };
 
   Logic.difficultyPreset = function (id) {
@@ -50,7 +50,8 @@
       bulletSpeedMul: Math.min(2, 1 + (w - 1) * 0.06) * p.bulletSpeedMul,
       scoreMul: p.scoreMul,
       lives: p.lives,
-      aggroMul: p.aggroMul
+      aggroMul: p.aggroMul,
+      dropRate: p.dropRate
     };
   };
 

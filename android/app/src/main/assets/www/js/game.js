@@ -152,7 +152,7 @@
   /* 当前波难度 */
   function currentDiff() {
     if (MODE === L.CAMPAIGN) return L.difficulty(level * 2, DIFFICULTY);
-    if (MODE === L.ROGUELIKE) return L.difficulty(wave + 2, DIFFICULTY); /* 肉鸽起步即更凶 */
+    if (MODE === L.ROGUELIKE) return L.difficulty(wave + 1, DIFFICULTY); /* 肉鸽起步即更凶 */
     return L.difficulty(wave, DIFFICULTY);
   }
 
@@ -206,7 +206,8 @@
     var type = spawnSeq.shift();
     var en = E.spawnEnemy(type, W, currentDiff());
     /* v1.2: 精英怪 — 波次>=6 起 12% 概率,血量x2.5 体积x1.2 得分x3,紫色光环 */
-    if (wave >= 6 && type !== 'boss' && Math.random() < 0.12) {
+    var eliteWave = (MODE === L.CAMPAIGN) ? level : wave;
+    if (eliteWave >= 6 && type !== 'boss' && Math.random() < 0.12) {
       en.elite = true;
       en.hp *= 2.5; en.hp0 = en.hp;
       en.r *= 1.2;
@@ -385,14 +386,24 @@
         enemies.push(mini);
       }
     }
-    else if (Math.random() < 0.14) { dropPowerup(e.x, e.y, false); }
+    else { var dr = currentDiff().dropRate || 0.12; if (Math.random() < dr) dropPowerup(e.x, e.y, false); }
   }
 
   function dropPowerup(x, y, force) {
-    var kinds = ['W', 'S', 'H', 'B', 'F'];
-    var kind = force
-      ? (player.hp < player.hpMax ? 'H' : 'W')
-      : kinds[Math.floor(Math.random() * kinds.length)];
+    var kind;
+    if (force) {
+      if (player.hp < player.hpMax) kind = 'H';
+      else if (player.shield < L.SHIELD_MAX) kind = 'S';
+      else if (player.weapon < L.WEAPON_MAX) kind = 'W';
+      else kind = 'B';
+    } else {
+      var roll = Math.random();
+      if (roll < 0.28) kind = 'W';
+      else if (roll < 0.49) kind = 'S';
+      else if (roll < 0.70) kind = 'H';
+      else if (roll < 0.85) kind = 'B';
+      else kind = 'F';
+    }
     powerups.push(E.spawnPowerup(x, y, kind));
   }
 
@@ -763,7 +774,12 @@
       var bossHp = currentBossHp();
       if (bossHp > 0) {
         /* v1.2: 按图鉴轮换 Boss 种类(第 N 个 Boss = bossOf(N-1)) */
-        var ordinal = Math.floor((MODE === L.CAMPAIGN ? level : wave) / 5) - (MODE === L.CAMPAIGN ? 1 : 0);
+        var ordinal;
+        if (MODE === L.CAMPAIGN) {
+          ordinal = Math.max(0, level - 1);
+        } else {
+          ordinal = Math.max(0, Math.floor(wave / 5) - 1);
+        }
         var entry = L.bossOf(Math.max(0, ordinal));
         boss = E.spawnBoss(W, { bossHp: bossHp, kind: entry.id });
         boss.maxHp = boss.hp;

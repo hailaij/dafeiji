@@ -82,6 +82,14 @@ t('difficulty: aggroMul 攻击意愿随难度提升', () => {
   ok(normal.aggroMul < hard.aggroMul, 'normal 攻击意愿应低于 hard');
   ok(hard.aggroMul === 1, 'hard 应为基准 1');
 });
+t('difficulty: v1.2.1 dropRate 按难度递减', () => {
+  const easy = Logic.difficulty(1, 'easy');
+  const normal = Logic.difficulty(1, 'normal');
+  const hard = Logic.difficulty(1, 'hard');
+  ok(easy.dropRate > normal.dropRate, 'easy 掉率应高于 normal');
+  ok(normal.dropRate > hard.dropRate, 'normal 掉率应高于 hard');
+  near(easy.dropRate, 0.16); near(normal.dropRate, 0.12); near(hard.dropRate, 0.10);
+});
 
 /* ---------- 新增敌机解锁 ---------- */
 t('waveConfig: 新敌机随波次解锁', () => {
@@ -302,7 +310,7 @@ t('rogue: 新强化出现在可用池', () => {
 });
 
 /* ---------- v1.2: 版本 ---------- */
-t('version: v1.2.0', () => { near(Logic.VERSION, '1.2.0'); });
+t('version: v1.2.1', () => { near(Logic.VERSION, '1.2.1'); });
 
 console.log('------------------------------');
 console.log(passed + ' passed, ' + failed + ' failed');
