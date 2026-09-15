@@ -65,7 +65,7 @@ cd <仓库根>\android
 
 Wrapper 会自动下载 Gradle 8.7,`local.properties`(gitignore)由脚本生成或手动写 `sdk.dir=<SDK 路径>`。
 
-产物: `android\dist\neon-strike-1.0.0.apk`(复制到任意安卓设备安装即可)。
+产物: `android\dist\neon-strike-1.1.0.apk`(复制到任意安卓设备安装即可)。
 
 ## 同步游戏资产
 

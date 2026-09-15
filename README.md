@@ -2,6 +2,24 @@
 
 赛博朋克风格网页打飞机游戏。零依赖、零构建,双击即可玩;已内置 Android 打包工程,可一键产出 APK。
 
+**当前版本:v1.1.0**
+
+## 更新日志
+
+### [1.1.0] - 2026-09-15
+
+#### 新增
+- 新增 HUD 暂停按钮,触屏/移动端可一键暂停(桌面保留 P / Esc)
+
+#### 修复
+- 修复 README 因编码问题导致的正文乱码(统一 UTF-8 无 BOM + LF)
+
+#### 优化
+- Android 打包工具链可移植化(自带 JDK17 + Android SDK 说明),支持本地一键构建
+
+#### 变更
+- 添加 MIT License;README 增加 GitHub Pages 在线试玩链接
+
 ## 快速开始
 
 ### 网页版
@@ -13,7 +31,7 @@
 
 ### Android APK
 
-已打包产物:**`android/dist/neon-strike-1.0.0.apk`**(≈3.1 MB)
+已打包产物:**`android/dist/neon-strike-1.1.0.apk`**(≈3.1 MB)
 
 传到安卓手机,开启「允许安装未知来源」后直接安装即可。游戏完全离线运行,无网络权限。
 
@@ -102,7 +120,7 @@ dafeiji/
 │   │   ├── assets/www/              # 离线游戏资产(与根目录同步)
 │   │   └── res/                     # 图标/主题/字符串
 │   └── dist/                        # APK 产物
-│       └── neon-strike-1.0.0.apk    # ← 最终 APK
+│       └── neon-strike-1.1.0.apk    # ← 最终 APK
 └── test/                            # 自动化测试
 ```
 
