@@ -33,6 +33,10 @@
   var pointer = { active: false, x: 0, y: 0 };
   var keys = {};
   var shake = 0;
+  /* v1.2: 主动技能 EMP 与新道具 buff 状态 */
+  var empCdUntil = 0;      /* EMP 冷却截止时刻(performance.now 秒) */
+  var empWave = null;      /* EMP 冲击波动画 {x,y,r,maxR,t0,dur} */
+  var empStunUntil = 0;    /* 敌机全体眩晕截止(简化:全场统一计时) */
 
   var dom = {};
   var HISCORE_KEY = 'neon-strike-hiscore';
@@ -40,7 +44,7 @@
 
   /* ---- 对象池构造器 ---- */
   function makeBullet() {
-    return { x: 0, y: 0, vx: 0, vy: 0, r: 3, dead: false };
+    return { x: 0, y: 0, vx: 0, vy: 0, r: 3, dead: false, kind: '' };
   }
   function makeParticle() {
     return { x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, grav: false, color: '#fff', size: 2, dead: false };
@@ -48,9 +52,10 @@
 
   /* ---- DOM / HUD ---- */
   function cacheDom() {
-    var ids = ['hud-score', 'hud-wave', 'hud-combo', 'hud-weapon', 'hud-shield', 'hud-lives', 'hud-hp',
+    var ids = ['hud-score', 'hud-wave', 'hud-combo', 'hud-weapon', 'hud-shield', 'hud-lives', 'hud-hp', 'hud-buff',
       'overlay', 'panel-start', 'panel-pause', 'panel-over', 'panel-victory', 'panel-upgrade',
-      'final-score', 'victory-score', 'new-record', 'victory-record', 'btn-mute', 'mode-tag', 'upgrade-cards'];
+      'final-score', 'victory-score', 'new-record', 'victory-record', 'btn-mute', 'mode-tag', 'upgrade-cards',
+      'btn-emp', 'emp-cd'];
     for (var i = 0; i < ids.length; i++) dom[ids[i]] = document.getElementById(ids[i]);
     pauseBtn = document.getElementById('btn-pause');
   }
@@ -76,6 +81,25 @@
     dom['hud-shield'].textContent = 'SHIELD ' + player.shield;
     dom['hud-lives'].textContent = 'LIVES ' + player.lives;
     dom['hud-hp'].textContent = 'HP ' + player.hp + '/' + player.hpMax;
+    /* v1.2: buff 状态条(狂暴/冰霜剩余时间) */
+    if (dom['hud-buff']) {
+      var buffTxt = [];
+      if (player.rageUntil > now) buffTxt.push('狂暴 ' + Math.ceil(player.rageUntil - now) + 's');
+      if (player.frostUntil > now) buffTxt.push('冰霜 ' + Math.ceil(player.frostUntil - now) + 's');
+      dom['hud-buff'].textContent = buffTxt.join('  ');
+      dom['hud-buff'].style.display = buffTxt.length ? '' : 'none';
+    }
+    /* v1.2: EMP 冷却显示 */
+    if (dom['emp-cd'] && dom['btn-emp']) {
+      var cdLeft = Math.max(0, empCdUntil - now);
+      if (cdLeft > 0) {
+        dom['emp-cd'].textContent = Math.ceil(cdLeft) + 's';
+        dom['btn-emp'].classList.add('cooldown');
+      } else {
+        dom['emp-cd'].textContent = '';
+        dom['btn-emp'].classList.remove('cooldown');
+      }
+    }
   }
 
   function setPanel(name) {
@@ -180,17 +204,34 @@
   function spawnFromSeq() {
     if (!spawnSeq.length) return;
     var type = spawnSeq.shift();
-    enemies.push(E.spawnEnemy(type, W, currentDiff()));
+    var en = E.spawnEnemy(type, W, currentDiff());
+    /* v1.2: 精英怪 — 波次>=6 起 12% 概率,血量x2.5 体积x1.2 得分x3,紫色光环 */
+    if (wave >= 6 && type !== 'boss' && Math.random() < 0.12) {
+      en.elite = true;
+      en.hp *= 2.5; en.hp0 = en.hp;
+      en.r *= 1.2;
+      en.score *= 3;
+      en.vy *= 0.85;
+    } else {
+      en.hp0 = en.hp;
+    }
+    enemies.push(en);
   }
 
   /* ---- 射击 ---- */
   function firePlayerBullet(x, y, vx, vy) {
     var b = pbullets.obtain();
     b.x = x; b.y = y; b.vx = vx; b.vy = vy; b.r = 3; b.dead = false;
+    b.dmg = player.__lastDmg || player.damage;
   }
 
   function playerFire() {
     var sp = 560;
+    var rageOn = player.rageUntil > now;   /* 狂暴: 射速由 fireCd 端控制,此处弹速+伤害由 rollCrit 路径 */
+    var crit = L.rollCrit(player);
+    var dmg = player.damage * (crit.crit ? crit.mul : 1) * (rageOn ? 1.5 : 1);
+    if (crit.crit) A.play('hit');
+    player.__lastDmg = dmg;
     if (player.weapon === 1) {
       firePlayerBullet(player.x, player.y - 16, 0, -sp);
     } else if (player.weapon === 2) {
@@ -237,6 +278,18 @@
       fireEnemyBullet(e.x, e.y + 8, Math.cos(base + 0.16) * sp, Math.sin(base + 0.16) * sp);
       fireEnemyBullet(e.x, e.y + 8, Math.cos(base - 0.16) * sp, Math.sin(base - 0.16) * sp);
       A.play('enemyShoot');
+    } else if (e.type === 'bomber') {
+      /* v1.2 轰炸机:8 向环形弹幕 */
+      var n = 8, bsp = 150;
+      for (var bi = 0; bi < n; bi++) {
+        var ang = (Math.PI * 2 * bi) / n + e.t * 0.7;
+        fireEnemyBullet(e.x, e.y + 10, Math.cos(ang) * bsp, Math.sin(ang) * bsp);
+      }
+      A.play('boss');
+    } else if (e.type === 'mirror') {
+      /* v1.2 镜像机:竖直快弹(与玩家同 X,几乎必中,需走位) */
+      fireEnemyBullet(e.x, e.y + 14, 0, 330);
+      A.play('enemyShoot');
     }
   }
 
@@ -245,15 +298,43 @@
     var sp = b.phase === 1 ? 210 : 260;
     var base = Math.PI / 2; /* 朝下 */
     var spread = Math.PI * 0.5;
-    for (var i = 0; i < n; i++) {
-      var ang = base - spread / 2 + (spread * i) / (n - 1);
-      fireEnemyBullet(b.x, b.y + 30, Math.cos(ang) * sp, Math.sin(ang) * sp);
+    var i, ang;
+    /* v1.2: 按 Boss 图鉴专属弹幕分流 */
+    if (b.kind === 'vortex' && b.phase === 2) {
+      /* 湮灭漩涡:旋转螺旋弹 */
+      for (i = 0; i < 10; i++) {
+        ang = base + (i - 5) * 0.22 + b.t * 2.2;
+        fireEnemyBullet(b.x, b.y + 26, Math.cos(ang) * 190, Math.sin(ang) * 190);
+      }
+    } else if (b.kind === 'nova') {
+      /* 超新星:全向放射弹 */
+      n = b.phase === 1 ? 12 : 18;
+      for (i = 0; i < n; i++) {
+        ang = (Math.PI * 2 * i) / n + b.t * 0.5;
+        fireEnemyBullet(b.x, b.y, Math.cos(ang) * 170, Math.sin(ang) * 170);
+      }
+    } else if (b.kind === 'twin') {
+      /* 双子星环:左右炮口交替瞄准三连 */
+      var side = (Math.floor(b.t * 2) % 2 === 0) ? -1 : 1;
+      var sx = b.x + side * 22;
+      for (i = -1; i <= 1; i++) {
+        var dx2 = player.x - sx, dy2 = player.y - (b.y + 20);
+        var d2 = Math.sqrt(dx2 * dx2 + dy2 * dy2) || 1;
+        var a2 = Math.atan2(dy2, dx2) + i * 0.14;
+        fireEnemyBullet(sx, b.y + 20, Math.cos(a2) * 300, Math.sin(a2) * 300);
+      }
+    } else {
+      for (var j = 0; j < n; j++) {
+        ang = base - spread / 2 + (spread * j) / (n - 1);
+        fireEnemyBullet(b.x, b.y + 30, Math.cos(ang) * sp, Math.sin(ang) * sp);
+      }
     }
     if (b.phase === 2) {
       aimAtPlayer(b.x, b.y + 20, 280);
       if (b.summonT > 3 && enemies.length < 6) {
         b.summonT = 0;
-        enemies.push(E.spawnEnemy('grunt', W, currentDiff()));
+        /* v1.2: hive 召唤 weaver,其余召唤 grunt */
+        enemies.push(E.spawnEnemy(b.kind === 'hive' ? 'weaver' : 'grunt', W, currentDiff()));
       }
     }
     A.play('boss');
@@ -278,7 +359,7 @@
 
   function killEnemy(e) {
     e.dead = true;
-    var color = e.type === 'boss' ? R.C.magenta : R.C.magenta;
+    var color = e.type === 'boss' ? R.C.magenta : (e.type === 'phantom' ? R.C.red : (e.type === 'bomber' ? R.C.yellow : (e.type === 'healer' ? R.C.cyan : R.C.magenta)));
     burst(e.x, e.y, color, e.type === 'boss' ? 42 : 14, e.type === 'boss' ? 260 : 180);
     if (e.type === 'boss') A.play('bigBoom'); else A.play('boom');
     shake = Math.max(shake, e.type === 'boss' ? 12 : 4);
@@ -286,6 +367,12 @@
     combo = L.nextCombo(combo, now, lastKillAt).combo;
     lastKillAt = now;
     score += Math.round(L.scoreKill(e.score || 0, combo) * (player.scoreMul || 1) * currentDiff().scoreMul);
+
+    /* v1.2: 虹吸协议 — 概率回 1 HP */
+    if (player && player.vamp > 0 && Math.random() < player.vamp) {
+      player.hp = Math.min(player.hpMax, player.hp + 1);
+      burst(player.x, player.y, R.C.cyan, 6, 90);
+    }
 
     /* 道具掉落 */
     if (e.type === 'boss') { dropPowerup(e.x, e.y, true); }
@@ -302,7 +389,7 @@
   }
 
   function dropPowerup(x, y, force) {
-    var kinds = ['W', 'S', 'H'];
+    var kinds = ['W', 'S', 'H', 'B', 'F'];
     var kind = force
       ? (player.hp < player.hpMax ? 'H' : 'W')
       : kinds[Math.floor(Math.random() * kinds.length)];
@@ -311,6 +398,18 @@
 
   function applyPowerup(p) {
     p.dead = true;
+    if (p.kind === 'B') {
+      player.rageUntil = now + 6;  /* 狂暴 6s: 射速x2 + 伤害x1.5 */
+      A.play('victory');
+      burst(p.x, p.y, R.C.red, 16, 160);
+      return;
+    }
+    if (p.kind === 'F') {
+      player.frostUntil = now + 5; /* 冰霜 5s: 敌机与敌弹减速 55% */
+      A.play('pickup');
+      burst(p.x, p.y, R.C.cyan, 16, 160);
+      return;
+    }
     var r = L.applyPowerup(player, p.kind, player.hpMax);
     player.weapon = r.weapon; player.shield = r.shield; player.hp = r.hp;
     A.play('pickup');
@@ -358,6 +457,7 @@
     score = 0; combo = 0; lastKillAt = -1;
     spawnSeq = []; spawnTimer = 0; shake = 0;
     rogueChoices = [];
+    empCdUntil = 0; empWave = null; empStunUntil = 0;
     nextWave();
     setPanel('none');
     STATE = 'playing';
@@ -428,6 +528,40 @@
     updateHUD();
   }
 
+/* ---- v1.2 主动技能: EMP 电磁脉冲 ----
+   * 冷却 20s(empPerk 可缩短至 ~14s);范围伤害+眩晕+清屏敌弹 */
+  function triggerEMP() {
+    if (STATE !== 'playing' || !player) return;
+    if (now < empCdUntil) return;
+    var pm = L.empParams(player.emp, Math.min(W, H));
+    empCdUntil = now + L.EMP_COOLDOWN;
+    empWave = { x: player.x, y: player.y, maxR: pm.radius, t: 0, dur: 0.5 };
+    var i, e;
+    /* 范围内敌机伤害+眩晕 */
+    for (i = enemies.length - 1; i >= 0; i--) {
+      e = enemies[i];
+      var dx = e.x - player.x, dy = e.y - player.y;
+      if (dx * dx + dy * dy <= pm.radius * pm.radius) {
+        e.hp -= pm.dmg; e.flash = 0.12;
+        e.__stunUntil = now + pm.stun;
+        if (e.hp <= 0) { e.dead = true; killEnemy(e); enemies.splice(i, 1); }
+      }
+    }
+    if (boss && !boss.dead) {
+      var bdx = boss.x - player.x, bdy = boss.y - player.y;
+      if (bdx * bdx + bdy * bdy <= pm.radius * pm.radius) {
+        boss.hp -= pm.dmg * 0.5; boss.flash = 0.12;
+        boss.fireCd += pm.stun * 0.6;  /* Boss 免疫全额眩晕,延长射击间隔 */
+        if (boss.hp <= 0) { boss.dead = true; killEnemy(boss); boss = null; bossKilled = true; }
+      }
+    }
+    /* 清除全场敌弹 */
+    ebullets.forEach(function (b) { b.dead = true; });
+    A.play('bigBoom');
+    shake = Math.max(shake, 10);
+    burst(player.x, player.y, R.C.cyan, 24, 220);
+  }
+
   function pause() {
     if (STATE !== 'playing') return;
     STATE = 'paused';
@@ -447,6 +581,7 @@
         if (STATE === 'playing') pause(); else if (STATE === 'paused') resume();
       }
       if (k === 'm') { A.toggle(); syncMuteBtn(); }
+      if (k === 'e') triggerEMP();
       if (k === 'enter') {
         if (STATE === 'start') startGame(lastMode || L.ENDLESS);
         else if (STATE === 'gameover' || STATE === 'victory') startGame(lastMode || L.ENDLESS);
@@ -485,6 +620,15 @@
     document.getElementById('btn-victory-restart').addEventListener('click', function () { startGame(lastMode || L.ENDLESS); });
     document.getElementById('btn-menu-victory').addEventListener('click', goMenu);
     document.getElementById('btn-mute').addEventListener('click', function () { A.toggle(); syncMuteBtn(); });
+
+    /* v1.2: EMP 技能按钮(右下角) */
+    var empBtn = document.getElementById('btn-emp');
+    if (empBtn) {
+      empBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        triggerEMP();
+      });
+    }
 
     /* 暂停按钮(右上角) - 支持触屏和鼠标 */
     document.getElementById('btn-pause').addEventListener('click', function (e) {
@@ -551,7 +695,8 @@
     /* 自动开火 */
     player.fireCd -= dt;
     if (player.fireCd <= 0) {
-      player.fireCd = (player.weapon === 1 ? 0.16 : player.weapon === 2 ? 0.14 : 0.11) / player.fireRate;
+      var rate = player.fireRate * (player.rageUntil > now ? 2 : 1); /* v1.2 狂暴射速x2 */
+      player.fireCd = (player.weapon === 1 ? 0.16 : player.weapon === 2 ? 0.14 : 0.11) / rate;
       playerFire();
     }
   }
@@ -573,16 +718,43 @@
     }
 
     /* 更新敌机 */
+    var frostOn = player.frostUntil > now;
+    var frostMul = frostOn ? 0.45 : 1;   /* 冰霜: 敌机速度 x0.45 */
+    var stunned = now < empStunUntil || frostOn;
     for (var i = enemies.length - 1; i >= 0; i--) {
       var e = enemies[i];
       if (e.dead) { enemies.splice(i, 1); continue; } /* 已被击杀/撞击,仅移除 */
-      E.updateEnemy(e, dt, W, H, player.x, player.y);
+      if (e.__stunUntil > now) {
+        /* EMP 眩晕: 停止移动与开火 */
+        if (e.flash > 0) e.flash -= dt;
+      } else {
+        E.updateEnemy(e, dt * frostMul, W, H, player.x, player.y);
+      }
       if (e.dead) { enemies.splice(i, 1); continue; } /* 越界逃逸,移除(不计分) */
-      e.fireCd -= dt;
+      e.fireCd -= dt * frostMul;
       if (e.type === 'gunner' && e.fireCd <= 0 && e.y > 60 && e.y < 160) {
         e.fireCd = 1.4; enemyShoot(e);
       } else if (e.type === 'sniper' && e.fireCd <= 0 && e.y > 150) {
         e.fireCd = 1.8; enemyShoot(e);
+      } else if (e.type === 'bomber' && e.fireCd <= 0 && e.y > 60) {
+        e.fireCd = 2.4; enemyShoot(e);
+      } else if (e.type === 'mirror' && e.fireCd <= 0 && e.y > 80) {
+        e.fireCd = 1.1; enemyShoot(e);
+      } else if (e.type === 'healer' && e.fireCd <= 0) {
+        /* v1.2 治疗者: 为半径 140 内友军回复 2 HP */
+        e.fireCd = 2.6;
+        var healed = 0;
+        for (var hi = enemies.length - 1; hi >= 0; hi--) {
+          var he = enemies[hi];
+          if (he === e || he.dead) continue;
+          var hdx = he.x - e.x, hdy = he.y - e.y;
+          if (hdx * hdx + hdy * hdy <= 140 * 140 && he.hp < he.hp0) {
+            he.hp = Math.min(he.hp0, he.hp + 2);
+            he.flash = 0.1; healed++;
+            burst(he.x, he.y, R.C.cyan, 4, 60);
+          }
+        }
+        if (healed) A.play('pickup');
       }
     }
 
@@ -590,8 +762,11 @@
     if (boss === null && !bossKilled && spawnSeq.length === 0 && enemies.length === 0) {
       var bossHp = currentBossHp();
       if (bossHp > 0) {
-        boss = E.spawnBoss(W, { bossHp: bossHp });
-        boss.maxHp = bossHp;
+        /* v1.2: 按图鉴轮换 Boss 种类(第 N 个 Boss = bossOf(N-1)) */
+        var ordinal = Math.floor((MODE === L.CAMPAIGN ? level : wave) / 5) - (MODE === L.CAMPAIGN ? 1 : 0);
+        var entry = L.bossOf(Math.max(0, ordinal));
+        boss = E.spawnBoss(W, { bossHp: bossHp, kind: entry.id });
+        boss.maxHp = boss.hp;
         A.play('boss');
       }
     }
@@ -615,9 +790,10 @@
       if (b.y < -20 || b.x < -20 || b.x > W + 20) b.dead = true;
     });
 
-    /* 更新敌弹 */
+    /* 更新敌弹(v1.2: 冰霜减速) */
+    var ebDt = dt * (player.frostUntil > now ? 0.45 : 1);
     ebullets.forEach(function (b) {
-      b.x += b.vx * dt; b.y += b.vy * dt;
+      b.x += b.vx * ebDt; b.y += b.vy * ebDt;
       if (b.y > H + 20 || b.y < -20 || b.x < -20 || b.x > W + 20) b.dead = true;
     });
 
@@ -626,15 +802,15 @@
       if (b.dead) return;
       for (var j = enemies.length - 1; j >= 0; j--) {
         var en = enemies[j];
-        if (!en.dead && L.circleHit(b.x, b.y, b.r, en.x, en.y, en.r)) {
-          en.hp -= player.damage; b.dead = true;
+        if (!en.dead && !en.ghosted && L.circleHit(b.x, b.y, b.r, en.x, en.y, en.r)) {
+          en.hp -= (b.dmg || player.damage); b.dead = true;
           en.flash = 0.08;
           if (en.hp <= 0) { en.dead = true; killEnemy(en); }
           break;
         }
       }
       if (!b.dead && boss && !boss.dead && L.circleHit(b.x, b.y, b.r, boss.x, boss.y, boss.r)) {
-        boss.hp -= player.damage; b.dead = true; boss.flash = 0.08;
+        boss.hp -= (b.dmg || player.damage); b.dead = true; boss.flash = 0.08;
         if (boss.hp <= 0) { boss.dead = true; killEnemy(boss); boss = null; bossKilled = true; }
       }
     });
@@ -662,9 +838,28 @@
       var p = powerups[m];
       E.updatePowerup(p, dt, H);
       if (p.dead) { powerups.splice(m, 1); continue; }
+      /* v1.2: 磁力收集 — magnet perk 吸附范围内道具 */
+      var magR = player.r + (player.magnet || 0) * 60;
+      if (!p.dead && magR > player.r) {
+        var mdx = player.x - p.x, mdy = player.y - p.y;
+        var md = Math.sqrt(mdx * mdx + mdy * mdy);
+        if (md < magR && md > 1) {
+          var pull = 260 * dt;
+          p.x += (mdx / md) * pull;
+          p.y += (mdy / md) * pull;
+        }
+      }
       if (L.circleHit(p.x, p.y, p.r, player.x, player.y, player.r)) {
         applyPowerup(p); powerups.splice(m, 1);
       }
+    }
+
+    /* v1.2: EMP 冲击波动画 */
+    if (empWave) {
+      empWave.t += dt;
+      var prog = empWave.t / empWave.dur;
+      R.drawEmpWave(ctx, empWave.x, empWave.y, empWave.maxR, prog);
+      if (prog >= 1) empWave = null;
     }
 
     /* 粒子 */
@@ -712,7 +907,28 @@
     for (var j = 0; j < enemies.length; j++) {
       var e = enemies[j];
       if (e.flash > 0 && Math.floor(e.flash * 20) % 2 === 0) continue;
+      /* v1.2: phantom 相位闪烁 — 1.2s 周期,相位态半透明且不可被命中 */
+      if (e.type === 'phantom') {
+        var cyc = e.phaseT % 2.4;
+        e.ghosted = cyc > 1.5;           /* 0.9s 实体 / 相位透明 */
+        if (e.ghosted) ctx.globalAlpha = 0.25;
+      }
+      if (e.elite) {
+        /* 精英怪:品红外圈 + 血条 */
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,0,229,0.8)';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = R.C.magenta; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 7, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+        var ratio = Math.max(0, e.hp / e.hp0);
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(e.x - 16, e.y - e.r - 14, 32, 4);
+        ctx.fillStyle = R.C.magenta;
+        ctx.fillRect(e.x - 16, e.y - e.r - 14, 32 * ratio, 4);
+      }
       R.drawC(ctx, R.sprite(e.type), e.x, e.y);
+      if (e.type === 'phantom' && e.ghosted) ctx.globalAlpha = 1;
     }
 
     /* Boss */
@@ -770,7 +986,8 @@
         boss: boss ? { hp: boss.hp, maxHp: boss.maxHp, x: boss.x, y: boss.y, phase: boss.phase, dead: boss.dead } : null,
         enemies: enemies.map(function (e) { return { type: e.type, x: e.x, y: e.y, hp: e.hp }; }),
         spawnSeqLen: spawnSeq.length,
-        player: player ? { x: player.x, y: player.y, hp: player.hp, lives: player.lives } : null,
+        player: player ? { x: player.x, y: player.y, hp: player.hp, lives: player.lives, rage: !!(player.rageUntil > now), frost: !!(player.frostUntil > now) } : null,
+        empCdLeft: Math.max(0, empCdUntil - now),
         hudWave: dom['hud-wave'] ? dom['hud-wave'].textContent : ''
       };
     },

@@ -29,10 +29,14 @@
       <span class="stat" id="hud-shield">SHIELD 0</span>
       <span class="stat" id="hud-lives">LIVES 3</span>
       <span class="stat" id="hud-hp">HP 3</span>
+      <span class="stat hud-buff" id="hud-buff" style="display:none"></span>
     </div>
-    <button id="btn-pause" class="pause-btn" title="暂停(P)">⏸</button>
-    <button id="btn-mute" class="mute" title="静音/取消静音(M)">♪</button>
+    <div class="hud-actions">
+      <button id="btn-pause" class="pause-btn" title="暂停(P)">⏸</button>
+      <button id="btn-mute" class="mute" title="静音/取消静音(M)">♪</button>
+    </div>
   </div>
+  <button id="btn-emp" class="emp-btn" title="EMP 冲击(E)"><span id="emp-cd"></span>E</button>
 
   <div id="overlay">
     <div class="panel" id="panel-start">
@@ -51,7 +55,7 @@
         <button class="btn mode-btn" data-mode="campaign">闯关模式</button>
         <button class="btn mode-btn roguelike" data-mode="roguelike">肉鸽模式</button>
       </div>
-      <p class="hint">无限: 波次无尽追求高分 · 闯关: 10 关通关<br>肉鸽: 每 3 波三选一强化,永久叠加<br><br>移动: WASD / 方向键 / 鼠标 / 触屏<br>自动开火 · P 或 Esc 暂停 · M 静音</p>
+      <p class="hint">无限: 波次无尽追求高分 · 闯关: 10 关通关<br>肉鸽: 每 3 波三选一强化,永久叠加<br><br>移动: WASD / 方向键 / 鼠标 / 触屏<br>自动开火 · P 或 Esc 暂停 · E 释放 EMP · M 静音</p>
     </div>
     <div class="panel hidden" id="panel-pause">
       <h1>已暂停</h1>

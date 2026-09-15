@@ -125,6 +125,175 @@
       g.shadowBlur = 0;
     });
 
+    /* ---- v1.2 新敌人精灵 ---- */
+    S.weaver = makeSprite(48, function (g) {
+      poly(g, [[0, -14], [8, 0], [14, 12], [0, 6], [-14, 12], [-8, 0]]);
+      neon(g, C.magenta, 'rgba(255,0,229,0.14)', 2);
+      g.shadowColor = C.magenta; g.shadowBlur = 6;
+      g.strokeStyle = 'rgba(255,255,255,0.65)'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(-10, 2); g.lineTo(10, 2); g.stroke();
+      g.shadowBlur = 0;
+    });
+
+    S.bomber = makeSprite(72, function (g) {
+      poly(g, [[-22, 16], [-16, -14], [0, -20], [16, -14], [22, 16], [10, 20], [-10, 20]]);
+      neon(g, C.yellow, 'rgba(255,230,0,0.10)', 3);
+      g.shadowColor = C.yellow; g.shadowBlur = 8;
+      g.fillStyle = 'rgba(255,230,0,0.85)';
+      g.beginPath(); g.arc(0, 4, 5, 0, Math.PI * 2); g.fill();
+      g.shadowBlur = 0;
+    });
+
+    S.mirror = makeSprite(56, function (g) {
+      poly(g, [[0, -16], [10, -6], [10, 8], [0, 16], [-10, 8], [-10, -6]]);
+      neon(g, C.cyan, 'rgba(0,240,255,0.12)', 2.5);
+      g.shadowColor = C.cyan; g.shadowBlur = 8;
+      g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(0, -8); g.lineTo(0, 8); g.stroke();
+      g.shadowBlur = 0;
+    });
+
+    S.healer = makeSprite(56, function (g) {
+      poly(g, hexPts(16, Math.PI / 6));
+      neon(g, C.cyan, 'rgba(0,240,255,0.10)', 2.5);
+      g.shadowColor = C.cyan; g.shadowBlur = 8;
+      g.strokeStyle = C.cyan; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(-6, 0); g.lineTo(6, 0); g.moveTo(0, -6); g.lineTo(0, 6); g.stroke();
+      g.shadowBlur = 0;
+    });
+
+    S.phantom = makeSprite(48, function (g) {
+      poly(g, [[0, -14], [9, 2], [4, 14], [-4, 14], [-9, 2]]);
+      neon(g, C.red, 'rgba(255,51,85,0.10)', 2);
+      g.shadowColor = C.red; g.shadowBlur = 10;
+      g.strokeStyle = 'rgba(255,255,255,0.4)'; g.lineWidth = 1;
+      poly(g, [[0, -7], [5, 2], [0, 8], [-5, 2]]);
+      g.stroke();
+      g.shadowBlur = 0;
+    });
+
+    /* ---- v1.2 Boss 图鉴精灵(11 种,按配色区分 + 标志性形状) ---- */
+    S['boss'] = S['boss'] || S.boss;
+    S['boss-hive'] = makeSprite(128, function (g) {
+      poly(g, hexPts(44, 0));
+      neon(g, C.magenta, 'rgba(255,0,229,0.10)', 4);
+      var k;
+      for (k = 0; k < 6; k++) {
+        var a = Math.PI / 6 + k * Math.PI / 3;
+        g.beginPath();
+        g.arc(Math.cos(a) * 30, Math.sin(a) * 30, 9, 0, Math.PI * 2);
+        g.stroke();
+      }
+    });
+    S['boss-phantom'] = makeSprite(128, function (g) {
+      poly(g, [[0, -44], [30, -10], [18, 40], [-18, 40], [-30, -10]]);
+      neon(g, C.red, 'rgba(255,51,85,0.08)', 3);
+      g.shadowColor = C.red; g.shadowBlur = 14;
+      g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 2;
+      poly(g, [[0, -24], [14, 0], [0, 22], [-14, 0]]);
+      g.stroke();
+      g.shadowBlur = 0;
+    });
+    S['boss-fortress'] = makeSprite(136, function (g) {
+      poly(g, [[-44, 34], [-44, -24], [-22, -40], [22, -40], [44, -24], [44, 34]]);
+      neon(g, C.yellow, 'rgba(255,230,0,0.10)', 4);
+      g.shadowColor = C.yellow; g.shadowBlur = 8;
+      g.strokeRect(-28, -10, 56, 20);
+      g.strokeRect(-12, -30, 24, 14);
+      g.shadowBlur = 0;
+    });
+    S['boss-storm'] = makeSprite(128, function (g) {
+      var i;
+      for (i = 0; i < 3; i++) {
+        g.shadowColor = C.cyan; g.shadowBlur = 10;
+        g.strokeStyle = C.cyan; g.lineWidth = 2.5;
+        g.beginPath();
+        g.arc(0, 0, 44 - i * 14, i * 1.1, i * 1.1 + Math.PI * 1.4);
+        g.stroke();
+      }
+      g.shadowBlur = 0;
+    });
+    S['boss-nexus'] = makeSprite(128, function (g) {
+      poly(g, hexPts(44, 0));
+      neon(g, C.magenta, 'rgba(255,0,229,0.10)', 3);
+      g.shadowColor = C.magenta; g.shadowBlur = 10;
+      g.strokeStyle = C.magenta; g.lineWidth = 2;
+      var k;
+      for (k = 0; k < 3; k++) {
+        g.beginPath();
+        g.moveTo(Math.cos(k * Math.PI / 3) * 44, Math.sin(k * Math.PI / 3) * 44);
+        g.lineTo(Math.cos(k * Math.PI / 3 + Math.PI) * 44, Math.sin(k * Math.PI / 3 + Math.PI) * 44);
+        g.stroke();
+      }
+      g.shadowColor = C.cyan; g.shadowBlur = 12;
+      g.strokeStyle = C.cyan;
+      g.beginPath(); g.arc(0, 0, 14, 0, Math.PI * 2); g.stroke();
+      g.shadowBlur = 0;
+    });
+    S['boss-vortex'] = makeSprite(128, function (g) {
+      var i;
+      g.shadowColor = C.red; g.shadowBlur = 12;
+      g.strokeStyle = C.red; g.lineWidth = 3;
+      for (i = 0; i < 4; i++) {
+        g.beginPath();
+        var a0 = i * Math.PI / 2;
+        var r;
+        for (r = 6; r < 44; r += 4) {
+          var a = a0 + r * 0.11;
+          if (r === 6) g.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+          else g.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+        }
+        g.stroke();
+      }
+      g.shadowBlur = 0;
+    });
+    S['boss-juggernaut'] = makeSprite(140, function (g) {
+      poly(g, [[-46, 20], [-34, -36], [0, -46], [34, -36], [46, 20], [30, 40], [-30, 40]]);
+      neon(g, C.yellow, 'rgba(255,230,0,0.10)', 5);
+      g.shadowColor = C.yellow; g.shadowBlur = 10;
+      g.strokeRect(-30, -6, 60, 18);
+      g.strokeRect(-8, -30, 16, 16);
+      g.shadowBlur = 0;
+    });
+    S['boss-nova'] = makeSprite(128, function (g) {
+      var i;
+      g.shadowColor = C.orange; g.shadowBlur = 14;
+      g.strokeStyle = C.orange; g.lineWidth = 2.5;
+      for (i = 0; i < 8; i++) {
+        var a = i * Math.PI / 4;
+        g.beginPath();
+        g.moveTo(Math.cos(a) * 14, Math.sin(a) * 14);
+        g.lineTo(Math.cos(a) * 42, Math.sin(a) * 42);
+        g.stroke();
+      }
+      g.beginPath(); g.arc(0, 0, 16, 0, Math.PI * 2);
+      g.stroke();
+      g.shadowBlur = 0;
+    });
+    S['boss-twin'] = makeSprite(128, function (g) {
+      g.shadowColor = C.cyan; g.shadowBlur = 12;
+      g.strokeStyle = C.cyan; g.lineWidth = 3;
+      g.beginPath(); g.arc(-20, 0, 20, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.arc(20, 0, 20, 0, Math.PI * 2); g.stroke();
+      g.shadowColor = C.magenta; g.shadowBlur = 10;
+      g.strokeStyle = C.magenta; g.lineWidth = 2;
+      g.beginPath(); g.arc(0, 0, 38, 0, Math.PI * 2); g.stroke();
+      g.shadowBlur = 0;
+    });
+    S['boss-omega'] = makeSprite(144, function (g) {
+      poly(g, hexPts(48, 0));
+      neon(g, C.red, 'rgba(255,51,85,0.12)', 5);
+      g.shadowColor = C.red; g.shadowBlur = 14;
+      g.strokeStyle = C.red; g.lineWidth = 2.5;
+      poly(g, hexPts(30, Math.PI / 6));
+      g.stroke();
+      g.shadowColor = C.cyan; g.shadowBlur = 14;
+      g.strokeStyle = C.cyan;
+      poly(g, hexPts(16, 0));
+      g.stroke();
+      g.shadowBlur = 0;
+    });
+
     S.pb = makeSprite(24, function (g) {
       g.shadowColor = C.cyan; g.shadowBlur = 10;
       g.fillStyle = '#bffcff';
@@ -158,6 +327,38 @@
     S.puW = puSprite('W');
     S.puS = puSprite('S');
     S.puH = puSprite('H');
+    S.puB = puSprite('B');
+    S.puF = puSprite('F');
+
+    /* 新道具特效精灵:狂暴(B)红、冰霜(F)青 */
+    S.puB = makeSprite(40, function (g) {
+      g.shadowColor = C.red; g.shadowBlur = 12;
+      g.strokeStyle = C.red; g.lineWidth = 2;
+      g.fillStyle = 'rgba(255,51,85,0.12)';
+      poly(g, [[-11, -11], [11, -11], [11, 11], [-11, 11]]);
+      g.stroke(); g.fill();
+      g.shadowBlur = 0;
+      g.fillStyle = '#ffffff';
+      g.font = 'bold 13px ui-monospace, Menlo, Consolas, monospace';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.shadowColor = C.red; g.shadowBlur = 6;
+      g.fillText('B', 0, 1);
+      g.shadowBlur = 0;
+    });
+    S.puF = makeSprite(40, function (g) {
+      g.shadowColor = C.cyan; g.shadowBlur = 12;
+      g.strokeStyle = C.cyan; g.lineWidth = 2;
+      g.fillStyle = 'rgba(0,240,255,0.12)';
+      poly(g, [[-11, -11], [11, -11], [11, 11], [-11, 11]]);
+      g.stroke(); g.fill();
+      g.shadowBlur = 0;
+      g.fillStyle = '#ffffff';
+      g.font = 'bold 13px ui-monospace, Menlo, Consolas, monospace';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.shadowColor = C.cyan; g.shadowBlur = 6;
+      g.fillText('F', 0, 1);
+      g.shadowBlur = 0;
+    });
   };
 
   R.sprite = function (name) { return S[name]; };
@@ -239,6 +440,23 @@
     ctx.fillStyle = 'rgba(232,232,240,0.85)';
     ctx.font = 'bold 10px ui-monospace, Menlo, Consolas, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('WARNING / BOSS', w / 2, by - 8);
+    ctx.fillText('WARNING / ' + (boss.name || 'BOSS'), w / 2, by - 8);
+  };
+
+  /* ---- EMP 冲击波环(由 game 层在触发时绘制一次) ---- */
+  R.drawEmpWave = function (ctx, x, y, radius, progress) {
+    if (progress >= 1) return;
+    var r = radius * progress;
+    var alpha = 1 - progress;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor = C.cyan;
+    ctx.shadowBlur = 20;
+    ctx.strokeStyle = C.cyan;
+    ctx.lineWidth = 4 - progress * 3;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   };
 })();

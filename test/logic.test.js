@@ -229,6 +229,81 @@ t('rogue: rogueApply 未知 id 原样返回', () => {
   near(Logic.rogueApply({ weapon: 1 }, 'nope').weapon, 1);
 });
 
+
+/* ---------- v1.2: 新敌人解锁 ---------- */
+t('waveConfig: v1.2 新敌人随波次解锁', () => {
+  const c1 = Logic.waveConfig(1);
+  near(c1.counts.weaver, 0); near(c1.counts.bomber, 0); near(c1.counts.mirror, 0); near(c1.counts.healer, 0); near(c1.counts.phantom, 0);
+  ok(Logic.waveConfig(7).counts.weaver > 0, '第 7 波应解锁 weaver');
+  ok(Logic.waveConfig(8).counts.bomber > 0, '第 8 波应解锁 bomber');
+  ok(Logic.waveConfig(9).counts.mirror > 0, '第 9 波应解锁 mirror');
+  ok(Logic.waveConfig(10).counts.healer > 0, '第 10 波应解锁 healer');
+  ok(Logic.waveConfig(12).counts.phantom > 0, '第 12 波应解锁 phantom');
+});
+t('waveConfig: v1.2 新敌人数量有上限', () => {
+  const c = Logic.waveConfig(500);
+  ok(c.counts.weaver <= 12 && c.counts.bomber <= 6 && c.counts.mirror <= 5 && c.counts.healer <= 4 && c.counts.phantom <= 4, JSON.stringify(c.counts));
+});
+
+/* ---------- v1.2: Boss 图鉴轮换 ---------- */
+t('bossOf: 共 11 种 Boss 且轮换', () => {
+  ok(Logic.BOSS_ROSTER.length === 11, '应有 11 种 Boss');
+  ok(Logic.bossOf(0).id === 'boss');
+  ok(Logic.bossOf(10).id === 'omega');
+  ok(Logic.bossOf(11).id === 'boss', '第 11 个轮回首');
+  ok(Logic.bossOf(12).id === 'hive');
+});
+t('bossOf: 每种 Boss 有专属数据', () => {
+  Logic.BOSS_ROSTER.forEach((b, i) => {
+    ok(b.id && b.name && b.hp > 0 && b.score > 0 && b.color, 'Boss ' + i + ' 缺字段');
+  });
+});
+
+/* ---------- v1.2: 暴击 ---------- */
+t('rollCrit: 无暴击等级不触发', () => {
+  const r = Logic.rollCrit({ crit: 0 }, () => 0);
+  ok(!r.crit && r.mul === 1);
+});
+t('rollCrit: crit 1 级 10% 概率触发', () => {
+  const r = Logic.rollCrit({ crit: 1, critDmg: 0.5 }, () => 0.05);
+  ok(r.crit && r.mul === 1.5);
+});
+t('rollCrit: 超出概率不触发', () => {
+  const r = Logic.rollCrit({ crit: 1 }, () => 0.2);
+  ok(!r.crit);
+});
+
+/* ---------- v1.2: EMP 技能 ---------- */
+t('empParams: 范围/伤害随等级提升', () => {
+  const a = Logic.empParams(0, 400);
+  const b = Logic.empParams(2, 400);
+  ok(b.radius > a.radius && b.dmg > a.dmg && b.stun > a.stun);
+  near(Logic.EMP_COOLDOWN, 20);
+});
+
+/* ---------- v1.2: 肉鸽新强化 ---------- */
+t('rogue: v1.2 强化生效', () => {
+  ok(Logic.rogueApply({ crit: 0 }, 'crit').crit === 1);
+  ok(Logic.rogueApply({ magnet: 0 }, 'magnet').magnet === 1);
+  ok(Logic.rogueApply({ reflect: 0 }, 'reflect').reflect === 1);
+  ok(Logic.rogueApply({ emp: 0 }, 'emp').emp > 0);
+  ok(Logic.rogueApply({}, 'vamp').vamp > 0);
+});
+t('rogue: 新强化封顶', () => {
+  near(Logic.rogueApply({ crit: 3 }, 'crit').crit, 3);
+  near(Logic.rogueApply({ magnet: 3 }, 'magnet').magnet, 3);
+  near(Logic.rogueApply({ reflect: 2 }, 'reflect').reflect, 2);
+});
+t('rogue: 新强化出现在可用池', () => {
+  const pool = Logic.ROGUELIKE_PERKS.map(p => p.id);
+  ok(pool.includes('crit') && pool.includes('magnet') && pool.includes('reflect') && pool.includes('vamp') && pool.includes('emp'));
+  ok(Logic.rogueState({}).crit === 0, '默认 crit 0');
+  ok(Logic.rogueState({}).magnet === 0, '默认 magnet 0');
+});
+
+/* ---------- v1.2: 版本 ---------- */
+t('version: v1.2.0', () => { near(Logic.VERSION, '1.2.0'); });
+
 console.log('------------------------------');
 console.log(passed + ' passed, ' + failed + ' failed');
 if (failed) {

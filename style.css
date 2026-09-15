@@ -51,18 +51,12 @@ html, body {
 #hud-combo { color: var(--magenta); text-shadow: 0 0 6px rgba(255,0,229,0.7); }
 #hud-shield { color: var(--yellow); text-shadow: 0 0 6px rgba(255,230,0,0.6); }
 
-.mute {
-  position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
-  pointer-events: auto;
-  background: rgba(10,10,20,0.6);
-  border: 1px solid rgba(0,240,255,0.4);
-  color: var(--cyan);
-  width: 34px; height: 34px; border-radius: 6px;
-  font-size: 16px; cursor: pointer;
-  text-shadow: 0 0 6px rgba(0,240,255,0.6);
+/* v1.2: buff 状态条(狂暴/冰霜剩余时间) */
+.hud-buff {
+  color: var(--red, #ff3355);
+  text-shadow: 0 0 6px rgba(255,51,85,0.7);
+  font-weight: 700;
 }
-.mute:hover { background: rgba(0,240,255,0.12); }
-.mute.muted { color: #666; border-color: #444; text-shadow: none; text-decoration: line-through; }
 
 /* ---- 覆盖层 ---- */
 #overlay {
@@ -257,32 +251,60 @@ html, body {
   box-shadow: 0 0 20px rgba(255,0,229,0.45);
   transform: translateX(4px);
 }
-/* ---- 暂停按钮 (右上角 HUD) ---- */
-.pause-btn {
-  position: fixed; top: 12px; right: 16px;
-  width: 36px; height: 36px; border-radius: 6px;
+/* ---- HUD 右上角操作按钮组(暂停+静音,流式布局不重叠) ---- */
+.hud-actions {
+  display: flex; gap: 8px; align-items: center;
   pointer-events: auto;
+}
+
+/* ---- 暂停按钮 (右上角 HUD 组内) ---- */
+.pause-btn {
+  width: 36px; height: 36px; border-radius: 6px;
   background: rgba(10,10,20,0.6);
   border: 1px solid rgba(0,240,255,0.4);
   color: var(--cyan);
   font-size: 15px; cursor: pointer;
   text-shadow: 0 0 6px rgba(0,240,255,0.6);
   transition: all .15s;
-  z-index: 10;
 }
 .pause-btn:hover {
   background: rgba(0,240,255,0.12);
   box-shadow: 0 0 14px rgba(0,240,255,0.4);
 }
 
-/* ---- 暂停按钮 (右上角 HUD,移动端更大更易点) ---- */
+/* ---- 静音按钮(移入 hud-actions,不再居中悬浮) ---- */
+.mute {
+  width: 34px; height: 34px; border-radius: 6px;
+  background: rgba(10,10,20,0.6);
+  border: 1px solid rgba(0,240,255,0.4);
+  color: var(--cyan);
+  font-size: 16px; cursor: pointer;
+  text-shadow: 0 0 6px rgba(0,240,255,0.6);
+}
+.mute:hover { background: rgba(0,240,255,0.12); }
+.mute.muted { color: #666; border-color: #444; text-shadow: none; text-decoration: line-through; }
+
+/* ---- EMP 技能按钮(右下角,冷却倒计) ---- */
+.emp-btn {
+  position: fixed; right: 16px; bottom: 24px;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: rgba(0,240,255,0.08);
+  border: 2px solid rgba(0,240,255,0.6);
+  color: var(--cyan);
+  font-family: var(--mono); font-size: 15px; font-weight: 700;
+  cursor: pointer;
+  text-shadow: 0 0 8px rgba(0,240,255,0.7);
+  box-shadow: 0 0 16px rgba(0,240,255,0.3);
+  transition: all .15s;
+  z-index: 10;
+  display: none; /* 游戏中由 JS 控制显隐 */
+}
+.emp-btn:hover { background: rgba(0,240,255,0.2); box-shadow: 0 0 24px rgba(0,240,255,0.6); }
+.emp-btn.cooldown { opacity: 0.45; cursor: default; }
+.emp-btn #emp-cd { position: absolute; top: 6px; left: 0; right: 0; font-size: 10px; }
 @media (pointer: coarse), (max-width: 640px) {
-  .pause-btn {
-    width: 44px; height: 44px;
-    font-size: 17px;
-    top: 8px;
-    right: 8px;
-  }
+  .pause-btn, .mute { width: 44px; height: 44px; font-size: 17px; }
+  .emp-btn { width: 64px; height: 64px; font-size: 17px; right: 12px; bottom: 88px; }
 }
 .perk-label {
   font-size: 17px; font-weight: 700; letter-spacing: 0.06em;
