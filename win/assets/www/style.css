@@ -1,0 +1,302 @@
+/* NEON STRIKE - style.css : cyberpunk 霓虹样式 + HUD/覆盖层 */
+:root {
+  --bg: #0a0a12;
+  --cyan: #00f0ff;
+  --magenta: #ff00e5;
+  --yellow: #ffe600;
+  --mono: ui-monospace, "Cascadia Mono", Menlo, Consolas, "Courier New", monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  overflow: hidden;
+  font-family: var(--mono);
+  color: #d8d8e6;
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#game {
+  position: fixed; inset: 0;
+  display: block;
+  width: 100%; height: 100%;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+/* ---- HUD ---- */
+#hud {
+  position: fixed; top: 0; left: 0; right: 0;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 12px 16px;
+  /* iPhone 刘海屏安全区:PWA 全屏时状态栏悬浮,HUD 不能被遮挡 */
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
+  padding-left: calc(16px + env(safe-area-inset-left, 0px));
+  padding-right: calc(16px + env(safe-area-inset-right, 0px));
+  pointer-events: none;
+  z-index: 10;
+}
+.hud-left, .hud-right { display: flex; flex-direction: column; gap: 2px; }
+.hud-right { align-items: flex-end; }
+.stat {
+  font-size: 13px; letter-spacing: 0.15em; text-transform: uppercase;
+  color: #cfeff2;
+  text-shadow: 0 0 6px rgba(0,240,255,0.65), 0 0 14px rgba(0,240,255,0.35);
+}
+.hud-left .stat { color: var(--cyan); }
+#hud-score { font-size: 16px; font-weight: 700; }
+#hud-combo { color: var(--magenta); text-shadow: 0 0 6px rgba(255,0,229,0.7); }
+#hud-shield { color: var(--yellow); text-shadow: 0 0 6px rgba(255,230,0,0.6); }
+
+/* v1.2: buff 状态条(狂暴/冰霜剩余时间) */
+.hud-buff {
+  color: var(--red, #ff3355);
+  text-shadow: 0 0 6px rgba(255,51,85,0.7);
+  font-weight: 700;
+}
+
+/* ---- 覆盖层 ---- */
+#overlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(6,6,12,0.72);
+  backdrop-filter: blur(4px);
+  z-index: 20;
+}
+#overlay.hidden { display: none; }
+
+.panel {
+  min-width: 300px; max-width: 90vw;
+  padding: 36px 32px;
+  text-align: center;
+  background: linear-gradient(160deg, #10101f, #0a0a14);
+  border: 1px solid rgba(0,240,255,0.35);
+  border-radius: 8px;
+  box-shadow: 0 0 24px rgba(0,240,255,0.25), inset 0 0 40px rgba(0,240,255,0.05);
+}
+.panel h1 {
+  font-size: 34px; letter-spacing: 0.1em;
+  color: #eafeff;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.panel .sub { color: #9aaac0; font-size: 13px; letter-spacing: 0.1em; margin-bottom: 20px; }
+.panel .hint { color: #5a6a80; font-size: 11px; line-height: 1.8; margin-top: 18px; }
+.new-record { color: var(--yellow) !important; text-shadow: 0 0 8px rgba(255,230,0,0.7); }
+
+.btn {
+  display: inline-block;
+  padding: 12px 34px;
+  font-family: var(--mono); font-size: 15px; letter-spacing: 0.15em;
+  color: var(--cyan);
+  background: rgba(0,240,255,0.06);
+  border: 1px solid var(--cyan);
+  border-radius: 6px;
+  cursor: pointer;
+  text-transform: uppercase;
+  text-shadow: 0 0 8px rgba(0,240,255,0.7);
+  box-shadow: 0 0 14px rgba(0,240,255,0.25);
+  transition: all .15s;
+}
+.btn:hover {
+  background: rgba(0,240,255,0.16);
+  box-shadow: 0 0 22px rgba(0,240,255,0.5);
+  color: #ffffff;
+}
+
+/* 面板按钮组:纵向排列 */
+.panel-actions {
+  display: flex; flex-direction: column; gap: 10px;
+  align-items: center;
+}
+.panel-actions .btn { width: 200px; }
+/* 次要按钮(返回主菜单):更收敛的样式 */
+.btn-ghost {
+  color: #7f93a8;
+  background: transparent;
+  border-color: rgba(127,147,168,0.5);
+  text-shadow: none;
+  box-shadow: none;
+  font-size: 13px;
+  padding: 10px 34px;
+}
+.btn-ghost:hover {
+  background: rgba(127,147,168,0.14);
+  box-shadow: 0 0 14px rgba(127,147,168,0.25);
+  color: #dfe8f2;
+}
+
+/* ---- glitch 标题故障效果 ---- */
+.glitch { position: relative; }
+.glitch::before, .glitch::after {
+  content: attr(data-text);
+  position: absolute; left: 0; top: 0; width: 100%;
+  overflow: hidden;
+  opacity: 0.75;
+}
+.glitch::before {
+  color: var(--magenta);
+  transform: translate(-2px, 0);
+  clip-path: inset(0 0 55% 0);
+  animation: glitch-a 2.4s infinite steps(1);
+}
+.glitch::after {
+  color: var(--cyan);
+  transform: translate(2px, 0);
+  clip-path: inset(55% 0 0 0);
+  animation: glitch-b 2.8s infinite steps(1);
+}
+@keyframes glitch-a {
+  0%, 91%, 100% { transform: translate(-2px, 0); }
+  92% { transform: translate(-5px, -2px); }
+  94% { transform: translate(3px, 1px); }
+  96% { transform: translate(-2px, 0); }
+}
+@keyframes glitch-b {
+  0%, 86%, 100% { transform: translate(2px, 0); }
+  88% { transform: translate(5px, 2px); }
+  91% { transform: translate(-3px, -1px); }
+  93% { transform: translate(2px, 0); }
+}
+
+/* ---- 扫描线叠加层 ---- */
+#scanlines {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0,0,0,0.18) 0px, rgba(0,0,0,0.18) 1px,
+    transparent 1px, transparent 3px
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+}
+
+.hidden { display: none !important; }
+
+/* ---- 模式标签 ---- */
+.mode-tag {
+  color: var(--yellow);
+  text-shadow: 0 0 8px rgba(255,230,0,0.75);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+/* ---- 难度选择 ---- */
+.diff-select {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  margin-bottom: 16px;
+}
+.diff-label {
+  font-size: 11px; letter-spacing: 0.3em; color: #5a6a80; text-transform: uppercase;
+}
+.diff-btns { display: flex; gap: 8px; }
+.diff-btn {
+  padding: 7px 16px;
+  font-family: var(--mono); font-size: 13px; letter-spacing: 0.1em;
+  color: #7f93a8;
+  background: transparent;
+  border: 1px solid rgba(127,147,168,0.4);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.diff-btn:hover { color: #cfeff2; border-color: rgba(0,240,255,0.6); }
+.diff-btn.active {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  background: rgba(0,240,255,0.10);
+  text-shadow: 0 0 8px rgba(0,240,255,0.7);
+  box-shadow: 0 0 12px rgba(0,240,255,0.3);
+}
+
+/* ---- 模式选择按钮组 ---- */
+.mode-select {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-bottom: 4px;
+}
+.mode-btn { width: 100%; padding: 11px 20px; }
+.mode-btn.roguelike {
+  color: var(--magenta);
+  border-color: var(--magenta);
+  text-shadow: 0 0 8px rgba(255,0,229,0.7);
+  box-shadow: 0 0 14px rgba(255,0,229,0.25);
+}
+.mode-btn.roguelike:hover { background: rgba(255,0,229,0.16); box-shadow: 0 0 22px rgba(255,0,229,0.5); color: #fff; }
+
+/* ---- 肉鸽升级三选一卡片 ---- */
+.upgrade-title { color: var(--magenta) !important; text-shadow: 0 0 12px rgba(255,0,229,0.8); }
+#upgrade-cards {
+  display: flex; flex-direction: column; gap: 12px;
+  margin-top: 16px;
+}
+.perk-card {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 16px 18px;
+  text-align: left;
+  font-family: var(--mono);
+  background: rgba(255,0,229,0.05);
+  border: 1px solid rgba(255,0,229,0.45);
+  border-radius: 6px;
+  color: #eafeff;
+  cursor: pointer;
+  transition: all .15s;
+}
+.perk-card:hover {
+  background: rgba(255,0,229,0.16);
+  box-shadow: 0 0 20px rgba(255,0,229,0.45);
+  transform: translateX(4px);
+}
+/* ---- HUD 右上角操作按钮组(暂停,流式布局不重叠) ---- */
+.hud-actions {
+  display: flex; gap: 8px; align-items: center;
+  pointer-events: auto;
+}
+
+/* ---- 暂停按钮 (右上角 HUD 组内) ---- */
+.pause-btn {
+  width: 36px; height: 36px; border-radius: 6px;
+  background: rgba(10,10,20,0.6);
+  border: 1px solid rgba(0,240,255,0.4);
+  color: var(--cyan);
+  font-size: 15px; cursor: pointer;
+  text-shadow: 0 0 6px rgba(0,240,255,0.6);
+  transition: all .15s;
+}
+.pause-btn:hover {
+  background: rgba(0,240,255,0.12);
+  box-shadow: 0 0 14px rgba(0,240,255,0.4);
+}
+
+/* ---- EMP 技能按钮(右下角,冷却倒计) ---- */
+.emp-btn {
+  position: fixed; right: 16px; bottom: 24px;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: rgba(0,240,255,0.08);
+  border: 2px solid rgba(0,240,255,0.6);
+  color: var(--cyan);
+  font-family: var(--mono); font-size: 15px; font-weight: 700;
+  cursor: pointer;
+  text-shadow: 0 0 8px rgba(0,240,255,0.7);
+  box-shadow: 0 0 16px rgba(0,240,255,0.3);
+  transition: all .15s;
+  z-index: 10;
+  display: none; /* 游戏中由 JS 控制显隐 */
+}
+.emp-btn:hover { background: rgba(0,240,255,0.2); box-shadow: 0 0 24px rgba(0,240,255,0.6); }
+.emp-btn.cooldown { opacity: 0.45; cursor: default; }
+.emp-btn #emp-cd { position: absolute; top: 6px; left: 0; right: 0; font-size: 10px; }
+@media (pointer: coarse), (max-width: 640px) {
+  .pause-btn { width: 44px; height: 44px; font-size: 17px; }
+  .emp-btn { width: 64px; height: 64px; font-size: 17px; right: 12px; bottom: 88px; }
+}
+.perk-label {
+  font-size: 17px; font-weight: 700; letter-spacing: 0.06em;
+  color: var(--magenta);
+  text-shadow: 0 0 8px rgba(255,0,229,0.7);
+}
+.perk-desc { font-size: 12px; color: #c9b8d8; letter-spacing: 0.04em; }

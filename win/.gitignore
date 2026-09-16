@@ -1,0 +1,12 @@
+# 本地工具链(不入库,见 win/README.md)
+.venv-dotnet/
+
+# 构建产物
+bin/
+obj/
+publish/
+dist/
+
+# IDE
+*.user
+.vs/

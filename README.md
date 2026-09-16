@@ -1,8 +1,8 @@
 # NEON STRIKE · 霓虹突袭
 
-赛博朋克风格网页打飞机游戏。零依赖、零构建,双击即可玩;已内置 Android 打包工程,可一键产出 APK。
+赛博朋克风格网页打飞机游戏。零依赖、零构建,双击即可玩;已内置 Android 打包工程与 Windows 桌面版(WebView2 壳),可一键产出安装包。
 
-**当前版本:v1.2.5**
+**当前版本:v1.3.0**
 
 ## 快速开始
 
@@ -15,7 +15,7 @@
 
 ### Android APK
 
-已打包产物:**`android/dist/neon-strike-1.2.5.apk`**(≈3.1 MB)
+已打包产物:**`android/dist/neon-strike-1.3.0.apk`**(≈3.1 MB)
 
 传到安卓手机,开启「允许安装未知来源」后直接安装即可。游戏完全离线运行,无网络权限。
 
@@ -28,6 +28,24 @@ cd <仓库根>
 
 # 2. 一键构建 APK(需先准备 JDK17 + Android SDK,详见 android/README.md)
 cd android
+.\build-local.ps1
+```
+
+### Windows 桌面版
+
+已打包产物:**`win/dist/neon-strike-1.3.0-win64.exe`**(≈69 MB,Win10/11 x64)
+
+单文件自包含,双击即玩,无需安装 .NET(仅需系统自带 WebView2 运行时);游戏资产内嵌 exe,完全离线运行。
+
+重新打包(游戏代码变更后,两步完成):
+
+```powershell
+# 1. 同步最新游戏资产到 win 工程(同时同步 android)
+cd <仓库根>
+.\sync-assets.ps1
+
+# 2. 一键构建 exe(需先准备 .NET SDK 8+,详见 win/README.md)
+cd win
 .\build-local.ps1
 ```
 
@@ -118,7 +136,7 @@ node test/logic.test.js
 ```
 dafeiji/
 ├── index.html / style.css / js/     # 游戏(H5 源码)
-├── sync-assets.ps1                  # 同步游戏资产到 android 工程
+├── sync-assets.ps1                  # 同步游戏资产到 android / win 工程
 ├── android/                         # Android 打包工程(WebView 壳)
 │   ├── build-local.ps1              # 一键构建脚本
 │   ├── README.md                    # Android 打包详细文档
@@ -128,13 +146,26 @@ dafeiji/
 │   │   ├── assets/www/              # 离线游戏资产(与根目录同步)
 │   │   └── res/                     # 图标/主题/字符串
 │   └── dist/                        # APK 产物
-│       └── neon-strike-1.2.5.apk    # ← 最终 APK
+│       └── neon-strike-1.3.0.apk    # ← 最终 APK
+├── win/                             # Windows 桌面版(WebView2 壳)
+│   ├── build-local.ps1              # 一键构建脚本
+│   ├── NeonStrike.csproj            # .NET 8 WinForms 工程
+│   ├── assets/www/                  # 离线游戏资产(与根目录同步)
+│   └── dist/                        # exe 产物
+│       └── neon-strike-1.3.0-win64.exe
 └── test/                            # 自动化测试
 ```
 
-详细设计见 `design.md`;Android 打包细节见 `android/README.md`。样式规范:cyberpunk 霓虹(青=己方 / 品红·红·橙=敌方 / 黄=道具与重装坦克)。
+详细设计见 `design.md`;Android 打包细节见 `android/README.md`,Windows 桌面版打包细节见 `win/README.md`。样式规范:cyberpunk 霓虹(青=己方 / 品红·红·橙=敌方 / 黄=道具与重装坦克)。
 
 ## 更新日志
+## [1.3.0] - 2026-09-16
+### 新增
+- Windows 桌面版(WebView2 壳):单文件自包含 exe(Win10/11 x64),双击即玩,无需安装 .NET,游戏资产内嵌
+- 根目录 sync-assets.ps1 支持双目标同步(android + win)
+### 变更
+- Service Worker 缓存版本 v8 → v9
+- Android versionCode 7 → 8 / versionName 1.2.5 → 1.3.0
 ## [1.2.5] - 2026-09-16
 ### 优化
 - 收束 3 级主炮副弹道外倾角(约 16° → 5.7°)与肉鸽散射弹道角度,提升正前方集束打击手感(PR #1)
