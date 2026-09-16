@@ -10,8 +10,8 @@ android {
         applicationId = "com.neonstrike.game"
         minSdk = 24
         targetSdk = 34
-        versionCode = 6
-        versionName = "1.2.4"
+        versionCode = 7
+        versionName = "1.2.5"
     }
 
     buildTypes {
