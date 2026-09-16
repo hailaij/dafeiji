@@ -4,7 +4,6 @@
 # 工具链定位优先级:
 #   1. 环境变量 JAVA_HOME / ANDROID_HOME(已有全局安装优先)
 #   2. <仓库根>\android\.venv-android\  (本地工具链目录, gitignore)
-#   3. D:\ai\biancheng\.venv\           (作者机器兜底, 其他环境可删除此分支)
 $ErrorActionPreference = 'Stop'
 $androidDir = $PSScriptRoot
 $repoRoot = Split-Path -Parent $androidDir
@@ -22,23 +21,16 @@ function Resolve-Toolchain {
         Write-Host "== using toolchain: android\.venv-android" -ForegroundColor DarkGray
         return @{ java = (Join-Path $local 'jdk17') }
     }
-    # 3) 作者机器兜底(可按需删除)
-    $authorFallback = 'D:\ai\biancheng\.venv'
-    if (Test-Path (Join-Path $authorFallback 'jdk17\bin\java.exe')) {
-        Write-Host "== using author fallback toolchain: $authorFallback" -ForegroundColor DarkGray
-        return @{ java = (Join-Path $authorFallback 'jdk17') }
-    }
     throw "JDK 17 not found. Set JAVA_HOME, or place jdk17/ under android\.venv-android\."
 }
 
 $tc = Resolve-Toolchain
 $env:JAVA_HOME = $tc.java
 
-# ANDROID_HOME 同样三级定位
+# ANDROID_HOME 同样二级定位
 if (-not ($env:ANDROID_HOME -and (Test-Path $env:ANDROID_HOME))) {
     $candidates = @(
-        (Join-Path $androidDir '.venv-android\android-sdk'),
-        'D:\ai\biancheng\.venv\android-sdk'
+        (Join-Path $androidDir '.venv-android\android-sdk')
     )
     $found = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
     if ($found) { $env:ANDROID_HOME = $found }

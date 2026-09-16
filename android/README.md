@@ -51,8 +51,7 @@ cd <仓库根>\android
 脚本按以下优先级自动定位工具链,全部失败才报错:
 
 1. 环境变量 `JAVA_HOME` / `ANDROID_HOME`(你已有的全局安装优先)
-2. `<仓库根>\android\.venv-android\`(本项目约定的本地工具链目录)
-3. `D:\ai\biancheng\.venv\` — 仅作为作者机器上的最后兜底,**其他环境没有此路径,可自行删掉这个兜底分支**
+2. `<仓库根>\android\.venv-android\`(本项目约定的本地工具链目录,已 gitignore)
 
 ### 方式 B: 标准 Gradle
 
@@ -65,7 +64,7 @@ cd <仓库根>\android
 
 Wrapper 会自动下载 Gradle 8.7,`local.properties`(gitignore)由脚本生成或手动写 `sdk.dir=<SDK 路径>`。
 
-产物: `android\dist\neon-strike-1.1.0.apk`(复制到任意安卓设备安装即可)。
+产物: `android\dist\neon-strike-1.2.5.apk`(复制到任意安卓设备安装即可)。
 
 ## 同步游戏资产
 
