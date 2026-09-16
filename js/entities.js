@@ -139,6 +139,8 @@
       x: w / 2, y: -110, targetY: 130,
       r: 44, hp: Math.round(cfg.bossHp * entry.hp), maxHp: Math.round(cfg.bossHp * entry.hp),
       score: entry.score, fireCd: 1.6, phase: 1, strafeT: 0, summonT: 3,
+      /* v1.2.3: 重甲 Boss 横移更慢,凸显体量差 */
+      speedMul: entry.id === 'juggernaut' ? 0.65 : 1,
       fireKind: cfg.fireKind || 'fan', fireT: 0
     };
   };
@@ -269,7 +271,7 @@
     b.strafeT += dt;
     var range = (w - 2 * b.r - 40) / 2;
     if (range < 0) range = 0;
-    b.x = w / 2 + Math.sin(b.strafeT * (b.phase === 1 ? 0.9 : 1.5)) * range;
+    b.x = w / 2 + Math.sin(b.strafeT * (b.phase === 1 ? 0.9 : 1.5) * (b.speedMul || 1)) * range;
   };
 
   E.updatePowerup = function (p, dt, h) {

@@ -5,7 +5,7 @@
   'use strict';
   var Logic = {};
 
-  Logic.VERSION = '1.2.2';
+  Logic.VERSION = '1.2.3';
   Logic.COMBO_WINDOW_MS = 2000;
   Logic.WEAPON_MAX = 3;
   Logic.HP_MAX = 3;
