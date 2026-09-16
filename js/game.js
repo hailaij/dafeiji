@@ -34,7 +34,7 @@
   var keys = {};
   var shake = 0;
   /* v1.2: 主动技能 EMP 与新道具 buff 状态 */
-  var empCdUntil = 0;      /* EMP 冷却截止时刻(performance.now 秒) */
+  var empCdUntil = 0;      /* EMP 冷却截止时刻(performance.now 毫秒) */
   var empWave = null;      /* EMP 冲击波动画 {x,y,r,maxR,t0,dur} */
   var empStunUntil = 0;    /* 敌机全体眩晕截止(简化:全场统一计时) */
   var empBtn = null;
@@ -85,14 +85,14 @@
     /* v1.2: buff 状态条(狂暴/冰霜剩余时间) */
     if (dom['hud-buff']) {
       var buffTxt = [];
-      if (player.rageUntil > now) buffTxt.push('狂暴 ' + Math.ceil(player.rageUntil - now) + 's');
-      if (player.frostUntil > now) buffTxt.push('冰霜 ' + Math.ceil(player.frostUntil - now) + 's');
+      if (player.rageUntil > now) buffTxt.push('狂暴 ' + Math.ceil((player.rageUntil - now) / 1000) + 's');
+      if (player.frostUntil > now) buffTxt.push('冰霜 ' + Math.ceil((player.frostUntil - now) / 1000) + 's');
       dom['hud-buff'].textContent = buffTxt.join('  ');
       dom['hud-buff'].style.display = buffTxt.length ? '' : 'none';
     }
     /* v1.2: EMP 冷却显示 */
     if (dom['emp-cd'] && dom['btn-emp']) {
-      var cdLeft = Math.max(0, empCdUntil - now);
+      var cdLeft = Math.max(0, empCdUntil - now) / 1000;
       if (cdLeft > 0) {
         dom['emp-cd'].textContent = Math.ceil(cdLeft) + 's';
         dom['btn-emp'].classList.add('cooldown');
@@ -413,13 +413,13 @@
   function applyPowerup(p) {
     p.dead = true;
     if (p.kind === 'B') {
-      player.rageUntil = now + 6;  /* 狂暴 6s: 射速x2 + 伤害x1.5 */
+      player.rageUntil = now + 6000;  /* 狂暴 6s: 射速x2 + 伤害x1.5 */
       A.play('victory');
       burst(p.x, p.y, R.C.red, 16, 160);
       return;
     }
     if (p.kind === 'F') {
-      player.frostUntil = now + 5; /* 冰霜 5s: 敌机与敌弹减速 55% */
+      player.frostUntil = now + 5000; /* 冰霜 5s: 敌机与敌弹减速 55% */
       A.play('pickup');
       burst(p.x, p.y, R.C.cyan, 16, 160);
       return;
@@ -434,7 +434,7 @@
     if (player.invUntil > now) return;
     if (player.shield > 0) {
       player.shield--;
-      player.invUntil = now + 0.8;
+      player.invUntil = now + 800;
       A.play('hit');
       burst(player.x, player.y, R.C.cyan, 8, 120);
       return;
@@ -450,11 +450,11 @@
         return;
       }
       player.hp = player.hpMax;
-      player.invUntil = now + 1.6;
+      player.invUntil = now + 1600;
       player.weapon = Math.max(1, player.weapon - 1);
       player.shield = 0;
     } else {
-      player.invUntil = now + 0.8;
+      player.invUntil = now + 800;
     }
   }
 
@@ -548,7 +548,7 @@
     if (STATE !== 'playing' || !player) return;
     if (now < empCdUntil) return;
     var pm = L.empParams(player.emp, Math.min(W, H));
-    empCdUntil = now + L.EMP_COOLDOWN;
+    empCdUntil = now + L.EMP_COOLDOWN * 1000;
     empWave = { x: player.x, y: player.y, maxR: pm.radius, t: 0, dur: 0.5 };
     var i, e;
     /* 范围内敌机伤害+眩晕 */
@@ -557,7 +557,7 @@
       var dx = e.x - player.x, dy = e.y - player.y;
       if (dx * dx + dy * dy <= pm.radius * pm.radius) {
         e.hp -= pm.dmg; e.flash = 0.12;
-        e.__stunUntil = now + pm.stun;
+        e.__stunUntil = now + pm.stun * 1000;
         if (e.hp <= 0) { e.dead = true; killEnemy(e); enemies.splice(i, 1); }
       }
     }
