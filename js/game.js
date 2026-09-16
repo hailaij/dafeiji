@@ -36,7 +36,6 @@
   /* v1.2: 主动技能 EMP 与新道具 buff 状态 */
   var empCdUntil = 0;      /* EMP 冷却截止时刻(performance.now 毫秒) */
   var empWave = null;      /* EMP 冲击波动画 {x,y,r,maxR,t0,dur} */
-  var empStunUntil = 0;    /* 敌机全体眩晕截止(简化:全场统一计时) */
   var empBtn = null;
 
   var dom = {};
@@ -324,7 +323,7 @@
     } else if (b.kind === 'fortress') {
       /* 移动堡垒:横向碾压弹墙(重甲减伤见命中结算) */
       for (i = 0; i < 5; i++) {
-        var fx = b.x - 90 + (180 * i) / 4;
+        var fx = U.clamp(b.x - 90 + (180 * i) / 4, 20, W - 20); /* 窄屏防出界秒消失 */
         fireEnemyBullet(fx, b.y + 30, 0, 140);
       }
     } else if (b.kind === 'storm') {
@@ -540,7 +539,7 @@
     score = 0; combo = 0; lastKillAt = -1;
     spawnSeq = []; spawnTimer = 0; shake = 0;
     rogueChoices = [];
-    empCdUntil = 0; empWave = null; empStunUntil = 0;
+    empCdUntil = 0; empWave = null;
     nextWave();
     STATE = 'playing';
     setPanel('none');
@@ -795,16 +794,15 @@
     /* 更新敌机 */
     var frostOn = player.frostUntil > now;
     var frostMul = frostOn ? 0.45 : 1;   /* 冰霜: 敌机速度 x0.45 */
-    var stunned = now < empStunUntil || frostOn;
     for (var i = enemies.length - 1; i >= 0; i--) {
       var e = enemies[i];
       if (e.dead) { enemies.splice(i, 1); continue; } /* 已被击杀/撞击,仅移除 */
       if (e.__stunUntil > now) {
         /* EMP 眩晕: 停止移动与开火 */
         if (e.flash > 0) e.flash -= dt;
-      } else {
-        E.updateEnemy(e, dt * frostMul, W, H, player.x, player.y);
+        continue;
       }
+      E.updateEnemy(e, dt * frostMul, W, H, player.x, player.y);
       if (e.dead) { enemies.splice(i, 1); continue; } /* 越界逃逸,移除(不计分) */
       e.fireCd -= dt * frostMul;
       if (e.type === 'gunner' && e.fireCd <= 0 && e.y > 60 && e.y < 160) {
@@ -936,6 +934,10 @@
       }
     });
 
+    /* v1.2.4: 对象池回收 — 每帧释放死亡子弹/粒子,防止 active 数组无限膨胀 */
+    pbullets.releaseAll(function (b) { return !b.dead; });
+    ebullets.releaseAll(function (b) { return !b.dead; });
+
     /* 敌机撞击玩家 */
     for (var k = enemies.length - 1; k >= 0; k--) {
       var ee = enemies[k];
@@ -978,6 +980,7 @@
 
     /* 粒子 */
     particles.forEach(function (p) { E.updateParticle(p, dt); });
+    particles.releaseAll(function (p) { return !p.dead; });
 
     /* 波次推进 */
     /* 波次推进:Boss 已死则立即推进(无视残留的召唤杂兵) */
@@ -1111,6 +1114,8 @@
         enemies: enemies.map(function (e) { return { type: e.type, x: e.x, y: e.y, hp: e.hp }; }),
         spawnSeqLen: spawnSeq.length,
         ebulletCount: function () { var n = 0; ebullets.forEach(function (b) { if (!b.dead) n++; }); return n; }(),
+        ebulletPool: ebullets.active.length,
+        pbulletPool: pbullets.active.length,
         player: player ? { x: player.x, y: player.y, hp: player.hp, lives: player.lives, rage: !!(player.rageUntil > now), frost: !!(player.frostUntil > now) } : null,
         empCdLeft: Math.max(0, empCdUntil - now),
         hudWave: dom['hud-wave'] ? dom['hud-wave'].textContent : ''
