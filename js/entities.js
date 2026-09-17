@@ -21,6 +21,7 @@
   /* 敌机工厂(每次新建;数量少不做池化) */
   E.spawnEnemy = function (type, w, diff) {
     var e = { type: type, t: 0, dead: false, flash: 0, fireCd: U.rand(0.8, 2.0), aggro: (diff && diff.aggroMul) || 1 };
+    e.fireWarning = diff.fireWarning || 0.45; e.fireRest = diff.fireRest || 1;
     if (type === 'grunt') {
       e.r = 12;
       e.hp = 2 * diff.hpMul;
@@ -53,7 +54,7 @@
       e.vy = U.rand(38, 52) * diff.speedMul;
       e.score = 600;
     } else if (type === 'diver') {
-      /* 俯冲者:入场后持续追踪玩家俯冲,超时未命中则取消跟踪 */
+      /* 俯冲者:入场蓄力后俯冲，限制转向与最高速度 */
       e.r = 11;
       e.hp = 3 * diff.hpMul;
       e.x = U.rand(24, w - 24); e.y = -28;
@@ -135,7 +136,7 @@
     var i;
     for (i = 0; i < roster.length; i++) { if (roster[i].id === cfg.kind) { entry = roster[i]; break; } }
     return {
-      type: 'boss', kind: entry.id, name: entry.name, t: 0, dead: false, flash: 0,
+      type: 'boss', difficulty: cfg.difficulty || 'normal', kind: entry.id, name: entry.name, t: 0, dead: false, flash: 0,
       x: w / 2, y: -110, targetY: 180,
       r: 44, hp: Math.round(cfg.bossHp * entry.hp), maxHp: Math.round(cfg.bossHp * entry.hp),
       score: entry.score, fireCd: 1.6, phase: 1, strafeT: 0, summonT: 3,
@@ -151,113 +152,110 @@
 
   /* ---- 运动更新 ---- */
 
-  E.updateEnemy = function (e, dt, w, h, px, py) {
+  /* Sample perception instead of reading the player's coordinates every frame.
+   * Prediction is capped, and passing/close targets stop lateral pursuit. */
+  E.trackTarget = function (e, dt, w, h, px, py) {
+    e.thinkCd = (e.thinkCd || 0) - dt;
+    e.seenTime = (e.seenTime || 0) + dt;
+    if (!Number.isFinite(px) || !Number.isFinite(py)) return null;
+    if (!e.target || e.thinkCd <= 0) {
+      var lead = 0.16 * e.aggro;
+      var vx = e.seenX === undefined ? 0 : (px - e.seenX) / Math.max(0.05, e.seenTime);
+      var vy = e.seenY === undefined ? 0 : (py - e.seenY) / Math.max(0.05, e.seenTime);
+      e.target = { x: U.clamp(px + U.clamp(vx * lead, -64, 64), 20, w - 20),
+        y: U.clamp(py + U.clamp(vy * lead, -40, 40), 20, h - 20) };
+      e.seenX = px; e.seenY = py; e.seenTime = 0;
+      e.thinkCd = 0.42 - 0.2 * U.clamp(e.aggro, 0, 1);
+    }
+    return py > e.y + 48 && Math.hypot(px - e.x, py - e.y) > 85 ? e.target : null;
+  };
+
+  function steer(e, key, target, speed, dt, w, margin) {
+    var desired = target ? U.clamp((target.x - e[key]) * 2.5, -speed * e.aggro, speed * e.aggro) : 0;
+    e.steerV = (e.steerV || 0) + U.clamp(desired - (e.steerV || 0), -240 * dt, 240 * dt);
+    e[key] = U.clamp(e[key] + e.steerV * dt, margin, w - margin);
+  }
+
+  E.updateEnemy = function (e, dt, w, h, px, py, hudBottom) {
     e.t += dt;
     if (e.flash > 0) e.flash -= dt;
-    if (e.type === 'grunt') {
+    var target = E.trackTarget(e, dt, w, h, px, py);
+    var top = (hudBottom || 0) + e.r + 12;
+    var hover = Math.max(top, Math.min(h * 0.28, h - 140));
+    if (e.type === 'grunt' || e.type === 'tank' || e.type === 'splitter') {
       e.y += e.vy * dt;
-      /* 攻击意愿:水平追踪玩家,强度随难度 */
-      if (px !== undefined) {
-        e.x += U.clamp(px - e.x, -70 * e.aggro * dt, 70 * e.aggro * dt);
-      }
-    } else if (e.type === 'sine') {
+      steer(e, 'x', target, e.type === 'grunt' ? 100 : e.type === 'tank' ? 52 : 65, dt, w, e.r + 4);
+    } else if (e.type === 'sine' || e.type === 'weaver') {
       e.y += e.vy * dt;
-      /* 蛇形中心向玩家漂移,强度随难度 */
-      if (px !== undefined) {
-        e.baseX += U.clamp(px - e.baseX, -40 * e.aggro * dt, 40 * e.aggro * dt);
-        e.baseX = U.clamp(e.baseX, e.r + e.amp + 2, w - e.r - e.amp - 2);
-      }
+      steer(e, 'baseX', target, e.type === 'weaver' ? 85 : 65, dt, w, e.r + e.amp + 4);
       e.x = e.baseX + Math.sin(e.t * e.freq) * e.amp;
-    } else if (e.type === 'gunner') { /* 入场后悬停缓漂 */
-      if (e.y < 150) {
-        e.y += e.vy * dt;
-      } else {
-        e.y += Math.sin(e.t * 0.8) * 14 * dt;
-        e.x += Math.cos(e.t * 0.5) * 30 * dt;
-      }
-      e.x = U.clamp(e.x, e.r + 6, w - e.r - 6);
-    } else if (e.type === 'tank') { /* 慢速下冲,水平追踪玩家(强度随难度) */
-      e.y += e.vy * dt;
-      if (px !== undefined) {
-        e.x += U.clamp(px - e.x, -45 * e.aggro * dt, 45 * e.aggro * dt);
-      }
-    } else if (e.type === 'diver') { /* 追踪玩家俯冲,超时未命中则取消跟踪 */
+    } else if (e.type === 'diver') {
       if (!e.armed) {
-        /* 入场段:垂直下降 */
         e.y += e.vy * dt;
-        if (e.y > 90) { e.armed = true; e.diveSpeed = e.vy; }
-      } else if (!e.missed) {
-        /* 俯冲追踪:速度方向指向玩家实时位置,速率递增 */
+        if (e.y >= Math.max(top, Math.min(110, h * 0.22))) {
+          e.armed = true; e.diveSpeed = e.vy; e.charge = 0.4;
+          e.diveTarget = target ? {x:target.x,y:target.y} : {x:e.x,y:h + 80};
+          e.diveAngle = Math.atan2(Math.max(60, e.diveTarget.y - e.y), e.diveTarget.x - e.x);
+        }
+      } else if (e.charge > 0) {
+        e.charge = Math.max(0, e.charge - dt);
+      } else {
         e.diveT += dt;
-        e.diveSpeed += 620 * dt;
-        var tx = (px !== undefined ? px : e.tx);
-        var ty = (py !== undefined ? py : (h + 120));
-        var dx = tx - e.x, dy = ty - e.y;
-        var dl = Math.sqrt(dx * dx + dy * dy) || 1;
-        e.vx = (dx / dl) * e.diveSpeed;
-        e.vy = (dy / dl) * e.diveSpeed;
-        e.x += e.vx * dt;
-        e.y += e.vy * dt;
-        if (e.diveT >= 1.0) e.missed = true; /* 超时未命中,取消跟踪 */
-      } else {
-        /* 取消跟踪:沿当前速度方向直线飞出 */
-        e.x += e.vx * dt;
-        e.y += e.vy * dt;
+        if (!e.missed && target && e.diveT < 0.45) {
+          var wanted = Math.atan2(Math.max(60, target.y - e.y), target.x - e.x);
+          e.diveAngle += U.clamp(wanted - e.diveAngle, -0.8 * e.aggro * dt, 0.8 * e.aggro * dt);
+        } else e.missed = true;
+        e.diveSpeed = Math.min(480, e.diveSpeed + 420 * dt);
+        e.vx = Math.cos(e.diveAngle) * e.diveSpeed;
+        e.vy = Math.sin(e.diveAngle) * e.diveSpeed;
+        e.x += e.vx * dt; e.y += e.vy * dt;
       }
-    } else if (e.type === 'splitter') { /* 慢速下冲 */
-      e.y += e.vy * dt;
-    } else if (e.type === 'sniper') { /* sniper:入场后悬停缓漂 */
-      if (e.y < 180) {
-        e.y += e.vy * dt;
-      } else {
-        e.y += Math.sin(e.t * 0.7) * 12 * dt;
-        e.x += Math.cos(e.t * 0.6) * 22 * dt;
+    } else if (['gunner', 'sniper', 'bomber', 'mirror', 'healer'].indexOf(e.type) >= 0) {
+      // Stable firing band follows the viewport/HUD rather than a fixed y limit.
+      var hoverY = e.type === 'healer' ? top : hover;
+      if (!e.aimLock) e.y += U.clamp(hoverY - e.y, -e.vy * dt, e.vy * dt);
+      if (!e.aimLock) {
+        if (e.type === 'healer') e.x = U.clamp(e.x + Math.cos(e.t * 0.35) * 26 * dt, e.r + 6, w - e.r - 6);
+        else {
+          var firingTarget = target;
+          if (target && e.type === 'sniper') {
+            // Snipers flank instead of stacking directly on the gunner's lane.
+            firingTarget = {x:U.clamp(target.x + (e.flank || (e.flank = e.x < w / 2 ? -1 : 1)) * Math.min(80, w * 0.18), e.r + 6, w - e.r - 6)};
+          }
+          steer(e, 'x', firingTarget, {gunner:85,sniper:62,bomber:44,mirror:145}[e.type], dt, w, e.r + 6);
+        }
       }
-      e.x = U.clamp(e.x, e.r + 6, w - e.r - 6);
-    }
-    if (e.type === 'weaver') {
-      e.y += e.vy * dt;
-      if (px !== undefined) {
-        e.baseX += U.clamp(px - e.baseX, -55 * e.aggro * dt, 55 * e.aggro * dt);
-        e.baseX = U.clamp(e.baseX, e.r + e.amp + 2, w - e.r - e.amp - 2);
-      }
-      e.x = e.baseX + Math.sin(e.t * e.freq) * e.amp;
-    } else if (e.type === 'bomber') {
-      /* 缓慢下压,到中段后悬停左右缓漂 */
-      if (e.y < 120) {
-        e.y += e.vy * dt;
-      } else {
-        e.y += Math.sin(e.t * 0.6) * 10 * dt;
-        e.x += Math.cos(e.t * 0.4) * 24 * dt;
-      }
-      e.x = U.clamp(e.x, e.r + 6, w - e.r - 6);
-    } else if (e.type === 'mirror') {
-      /* 缓慢下压到固定高度后,横向镜像跟踪玩家 */
-      if (e.y < 110) {
-        e.y += e.vy * dt;
-      } else if (px !== undefined) {
-        e.x += U.clamp(px - e.x, -130 * e.aggro * dt, 130 * e.aggro * dt);
-        e.y += Math.sin(e.t * 1.1) * 8 * dt;
-      }
-      e.x = U.clamp(e.x, e.r + 6, w - e.r - 6);
-    } else if (e.type === 'healer') {
-      /* 悬停在场后方,左右缓慢漂移 */
-      if (e.y < 90) {
-        e.y += e.vy * dt;
-      } else {
-        e.y += Math.sin(e.t * 0.5) * 8 * dt;
-        e.x += Math.cos(e.t * 0.35) * 26 * dt;
-      }
-      e.x = U.clamp(e.x, e.r + 6, w - e.r - 6);
     } else if (e.type === 'phantom') {
-      /* 斜向快速穿屏 + 相位闪烁;碰壁反弹一次 */
       e.phaseT += dt;
-      e.x += e.vx * dt;
-      e.y += e.vy * dt;
+      // Reacquire only when entering the solid phase; keep a readable crossing path.
+      var phase = Math.floor(e.phaseT / 2.4);
+      if (e.reacquired !== phase && target) {
+        e.reacquired = phase;
+        e.vx = (target.x >= e.x ? 1 : -1) * Math.abs(e.vx);
+      }
+      e.x += e.vx * dt; e.y += e.vy * dt;
       if (e.x < e.r + 4) { e.x = e.r + 4; e.vx = Math.abs(e.vx); }
       if (e.x > w - e.r - 4) { e.x = w - e.r - 4; e.vx = -Math.abs(e.vx); }
     }
     if (e.y > h + 80 || e.x < -80 || e.x > w + 80) e.dead = true;
+  };
+
+  E.prepareEnemyShot = function (e, dt, h, py, hudBottom) {
+    var intervals = {gunner:1.4,sniper:1.9,bomber:2.4,mirror:1.3};
+    if (!intervals[e.type]) return false;
+    if (e.y < (hudBottom || 0) + e.r || e.y > h - 70 || py <= e.y + 55) {
+      e.aimLock = null; e.fireCd = Math.max(0.55, e.fireCd); return false;
+    }
+    e.fireCd -= dt;
+    if (!e.aimLock && e.fireCd <= (e.fireWarning || 0.4)) {
+      var target = e.target || {x:e.x,y:h};
+      e.aimLock = {x:e.x,y:e.y + 14,angle:e.type === 'mirror' ? Math.PI / 2 : Math.atan2(Math.max(55, target.y - e.y - 14), target.x - e.x)};
+      e.fireCd = e.fireWarning || 0.4; // Always provide a full warning, even after a long entry.
+    } else if (e.aimLock && e.fireCd <= 0) {
+      e.fireCd = intervals[e.type] * (1.2 - 0.25 * e.aggro) * (e.fireRest || 1);
+      return true;
+    }
+    return false;
   };
 
   E.updateBoss = function (b, dt, w) {

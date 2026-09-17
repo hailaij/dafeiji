@@ -82,8 +82,9 @@
         else fan(x, y, aim, p2 ? 7 : 5, 0.9, 235);
         break;
     }
-    return { shots: shots, warning: b.kind === 'juggernaut' ? 1.15 : 0.75,
-      rest: (b.kind === 'storm' ? 0.45 : b.kind === 'juggernaut' ? 1.9 : 1.1) * (p2 ? 0.8 : 1),
+    var balance = L.balancePreset(b.difficulty);
+    return { shots: shots, warning: balance.bossWarning * ( b.kind === 'juggernaut' ? 1.15 : 0.75),
+      rest: balance.bossRest * (b.kind === 'storm' ? 0.45 : b.kind === 'juggernaut' ? 1.9 : 1.1) * (p2 ? 0.8 : 1),
       summon: b.kind === 'hive' && turn % (p2 ? 2 : 3) === 0 ? 'weaver' :
         b.kind === 'boss' && p2 && turn % 3 === 0 ? 'grunt' : null };
   };

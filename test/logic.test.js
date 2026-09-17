@@ -30,7 +30,7 @@ t('difficulty: 波次越高越难(单调)', () => {
   ok(b.hpMul > a.hpMul, 'hpMul 应递增');
   ok(b.speedMul > a.speedMul, 'speedMul 应递增');
 });
-t('difficulty: 各项有上限', () => { const c = Logic.difficulty(999); near(c.hpMul, 4); near(c.speedMul, 2.2); near(c.bulletSpeedMul, 2); ok(c.spawnInterval >= 300); });
+t('difficulty: 各项有上限', () => { const c = Logic.difficulty(999); near(c.hpMul, 3.2); near(c.speedMul, 1.8); near(c.bulletSpeedMul, 1.1); ok(c.spawnInterval >= 450); });
 t('difficulty: 非法波次回退第 1 波', () => { near(Logic.difficulty(0).hpMul, 1); near(Logic.difficulty(-5).spawnInterval, 950); });
 
 /* ---------- 波次表 ---------- */
@@ -310,7 +310,7 @@ t('rogue: 新强化出现在可用池', () => {
 });
 
 /* ---------- v1.2: 版本 ---------- */
-t('version: v1.4.1', () => { near(Logic.VERSION, '1.4.1'); });
+t('version: v1.4.2', () => { near(Logic.VERSION, '1.4.2'); });
 
 console.log('------------------------------');
 console.log(passed + ' passed, ' + failed + ' failed');

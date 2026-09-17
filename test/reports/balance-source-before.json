@@ -1,0 +1,8 @@
+{
+  "js/core.js": "d9c5e9369dc847dcc0812616b78c31168f502713a8471bb9c0b00822caa60efb",
+  "js/logic.js": "13a367c98921df2b53bcbeadda320fb522e92f66eff5ac49bd193c45bccfae00",
+  "js/bosses.js": "6a546ba80675fdbdd4d9deab8066fb6bc5be700d65b7f833b4d28fd52162674b",
+  "js/entities.js": "e0e4d6ec736d9cfe87c284416f9771fae3be62d02643c136e9a3229784848de8",
+  "js/game.js": "115c6d167f76a78ca1b22b643dc5675ce2b30ca03783b900b35c5a6bcfd23e51",
+  "js/input.js": "658f953d33f1b44f3f4ad8bd3a786f5c3865c9ff1fd385873fe00ac28f611ba0"
+}

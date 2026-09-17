@@ -5,7 +5,7 @@
   'use strict';
   var Logic = {};
 
-  Logic.VERSION = '1.4.1';
+  Logic.VERSION = '1.4.2';
   Logic.COMBO_WINDOW_MS = 2000;
   Logic.WEAPON_MAX = 3;
   Logic.HP_MAX = 3;
@@ -30,10 +30,19 @@
 
   /* ---- 难度档位:影响血量/速度/弹速/出怪节奏与玩家命数 ---- */
   Logic.DIFFICULTIES = {
-    easy:   { id: 'easy',   label: '简单', lives: 5, hpMul: 0.70, speedMul: 0.82, bulletSpeedMul: 0.78, spawnIntervalMul: 1.35, scoreMul: 1.0, aggroMul: 0.40, dropRate: 0.16 },
-    normal: { id: 'normal', label: '中等', lives: 3, hpMul: 1.00, speedMul: 1.00, bulletSpeedMul: 1.00, spawnIntervalMul: 1.00, scoreMul: 1.0, aggroMul: 0.45, dropRate: 0.12 },
-    hard:   { id: 'hard',   label: '困难', lives: 2, hpMul: 1.45, speedMul: 1.22, bulletSpeedMul: 1.30, spawnIntervalMul: 0.78, scoreMul: 1.3, aggroMul: 1.00, dropRate: 0.10 }
+    easy:   { id: 'easy',   label: '简单', lives: 5, hpMul: 0.65, speedMul: 0.80, bulletSpeedMul: 0.78, spawnIntervalMul: 1.35, scoreMul: 1.0, aggroMul: 0.55, dropRate: 0.16 },
+    normal: { id: 'normal', label: '中等', lives: 3, hpMul: 1.00, speedMul: 1.00, bulletSpeedMul: 1.00, spawnIntervalMul: 1.00, scoreMul: 1.0, aggroMul: 0.75, dropRate: 0.12 },
+    hard:   { id: 'hard',   label: '困难', lives: 2, hpMul: 1.25, speedMul: 1.12, bulletSpeedMul: 1.12, spawnIntervalMul: 0.90, scoreMul: 1.3, aggroMul: 1.00, dropRate: 0.10 }
   };
+
+  // Caps prevent stacking wave growth with difficulty into unreadable late combat.
+  Logic.BALANCE = {
+    easy: {hpCap:2.6, speedCap:1.55, spawnFloor:650, bossHp:0.60, bossWarning:1.35, bossRest:1.65, fireWarning:0.55, fireRest:1.15},
+    normal: {hpCap:3.2, speedCap:1.80, spawnFloor:450, bossHp:0.75, bossWarning:1.10, bossRest:1.45, fireWarning:0.45, fireRest:1.05},
+    hard: {hpCap:4.0, speedCap:2.05, spawnFloor:360, bossHp:1.05, bossWarning:1.00, bossRest:1.00, fireWarning:0.40, fireRest:1.00}
+  };
+  Logic.balancePreset = function (id) { return Logic.BALANCE[id] || Logic.BALANCE.normal; };
+  Logic.campaignDifficulty = function (level, id) { return Logic.difficulty(Math.max(1, level * 1.5 - 0.5), id); };
 
   Logic.difficultyPreset = function (id) {
     return Logic.DIFFICULTIES[id] || Logic.DIFFICULTIES.normal;
@@ -43,14 +52,16 @@
   Logic.difficulty = function (wave, diffId) {
     var w = Math.max(1, Math.floor(wave || 1));
     var p = Logic.difficultyPreset(diffId);
+    var b = Logic.balancePreset(diffId);
     return {
-      spawnInterval: Math.round(Math.max(300, 950 - (w - 1) * 45) * p.spawnIntervalMul),  /* ms/架 */
-      hpMul: Math.min(4, 1 + (w - 1) * 0.18) * p.hpMul,
-      speedMul: Math.min(2.2, 1 + (w - 1) * 0.07) * p.speedMul,
-      bulletSpeedMul: Math.min(2, 1 + (w - 1) * 0.06) * p.bulletSpeedMul,
+      spawnInterval: Math.round(Math.max(b.spawnFloor, 950 - (w - 1) * 32) * p.spawnIntervalMul),  /* ms/架 */
+      hpMul: Math.min(b.hpCap, 1 + (w - 1) * 0.14) * p.hpMul,
+      speedMul: Math.min(b.speedCap, 1 + (w - 1) * 0.045) * p.speedMul,
+      bulletSpeedMul: Math.min(1.10, 1 + (w - 1) * 0.006) * p.bulletSpeedMul,
       scoreMul: p.scoreMul,
       lives: p.lives,
       aggroMul: p.aggroMul,
+      fireWarning: b.fireWarning, fireRest: b.fireRest,
       dropRate: p.dropRate
     };
   };
@@ -63,7 +74,7 @@
     return {
       wave: w,
       boss: boss,
-      bossHp: boss ? 60 + w * 12 : 0,
+      bossHp: boss ? Math.round((60 + w * 12) * Logic.balancePreset(diffId).bossHp) : 0,
       counts: {
         grunt: Math.min(30, 8 + w * 2),
         sine: w >= 2 ? Math.min(18, 4 + w) : 0,
@@ -91,7 +102,7 @@
   /* 闯关模式关卡配置:每关 = 3 波杂兵 + 1 波 Boss */
   Logic.campaignConfig = function (level, diffId) {
     var lv = Math.max(1, Math.floor(level || 1));
-    var d = Logic.difficulty(lv * 2, diffId);
+    var d = Logic.campaignDifficulty(lv, diffId);
     var waves = [];
     var i;
     for (i = 0; i < Logic.WAVES_PER_LEVEL - 1; i++) {
@@ -116,9 +127,9 @@
     }
     waves.push({
       boss: true,
-      bossHp: 40 + lv * 18,
+      bossHp: Math.round((40 + lv * 18) * Logic.balancePreset(diffId).bossHp),
       counts: { grunt: Math.max(1, Math.round(lv / 2)), sine: 0, gunner: 0 },
-      spawnInterval: Math.max(340, Math.round(d.spawnInterval * 0.85))
+      spawnInterval: d.spawnInterval
     });
     return { level: lv, waves: waves };
   };

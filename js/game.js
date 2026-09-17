@@ -22,7 +22,7 @@
   var pbullets = new Pool(makeBullet);
   var ebullets = new Pool(makeBullet);
   var particles = new Pool(makeParticle);
-  var wave = 0, spawnSeq = [], spawnTimer = 0;
+  var wave = 0, spawnSeq = [], spawnTimer = 0, waveSpawnInterval = 950;
   var MODE = L.ENDLESS; /* endless | campaign | roguelike */
   var DIFFICULTY = 'normal'; /* easy | normal | hard */
   var level = 0, levelWave = 0, levelPlan = [], campaignClearT = -1;
@@ -160,6 +160,7 @@
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     stars = R.makeStars(W, H);
     if (flightInput) flightInput.reset();
+    enemies.forEach(function (e) { e.aimLock = null; e.target = null; e.fireCd = Math.max(e.fireCd, 0.6); });
     if (boss) {
       boss.x = U.clamp(boss.x, boss.r + 10, W - boss.r - 10);
       boss.pending = null; boss.fireCd = Math.max(boss.fireCd, 0.75);
@@ -195,8 +196,7 @@
 
   /* 当前波难度 */
   function currentDiff() {
-    if (MODE === L.CAMPAIGN) return L.difficulty(level * 2, DIFFICULTY);
-    if (MODE === L.ROGUELIKE) return L.difficulty(wave + 1, DIFFICULTY); /* 肉鸽起步即更凶 */
+    if (MODE === L.CAMPAIGN) return L.campaignDifficulty(level, DIFFICULTY);
     return L.difficulty(wave, DIFFICULTY);
   }
 
@@ -216,6 +216,7 @@
       levelWave++;
       var wcfg = plan.waves[levelWave - 1];
       spawnSeq = buildSpawnSeq(wcfg);
+      waveSpawnInterval = wcfg.spawnInterval;
       spawnTimer = 1.2;
       if (wcfg.boss) {
         spawnSeq = spawnSeq.slice(0, Math.max(1, Math.ceil(spawnSeq.length / 2)));
@@ -226,6 +227,7 @@
       wave++;
       var cfg = L.waveConfig(wave, DIFFICULTY);
       spawnSeq = buildSpawnSeq(cfg);
+      waveSpawnInterval = cfg.spawnInterval;
       spawnTimer = 1.2;
       if (cfg.boss) {
         /* Boss 波:杂兵减半,出完后 Boss 登场 */
@@ -299,43 +301,30 @@
   }
 
   function fireEnemyBullet(x, y, vx, vy, r) {
+    var speedMul = currentDiff().bulletSpeedMul;
+    vx *= speedMul; vy *= speedMul;
     var b = ebullets.obtain();
     b.x = x; b.y = y; b.vx = vx; b.vy = vy; b.r = r || 4; b.dead = false;
   }
 
-  function aimAtPlayer(x, y, speed) {
-    var dx = player.x - x, dy = player.y - y;
-    var d = Math.sqrt(dx * dx + dy * dy) || 1;
-    fireEnemyBullet(x, y, dx / d * speed, dy / d * speed);
-  }
-
   function enemyShoot(e) {
-    if (e.type === 'gunner') {
-      aimAtPlayer(e.x, e.y + 10, 220);
-      A.play('enemyShoot');
-    } else if (e.type === 'sniper') {
-      /* 三连发瞄准弹:直射 + 左右小偏移 */
-      aimAtPlayer(e.x, e.y + 8, 300);
-      var sp = 300;
-      var dx = player.x - e.x, dy = player.y - (e.y + 8);
-      var d = Math.sqrt(dx * dx + dy * dy) || 1;
-      var base = Math.atan2(dy, dx);
-      fireEnemyBullet(e.x, e.y + 8, Math.cos(base + 0.16) * sp, Math.sin(base + 0.16) * sp);
-      fireEnemyBullet(e.x, e.y + 8, Math.cos(base - 0.16) * sp, Math.sin(base - 0.16) * sp);
-      A.play('enemyShoot');
-    } else if (e.type === 'bomber') {
-      /* v1.2 轰炸机:8 向环形弹幕 */
-      var n = 8, bsp = 150;
-      for (var bi = 0; bi < n; bi++) {
-        var ang = (Math.PI * 2 * bi) / n + e.t * 0.7;
-        fireEnemyBullet(e.x, e.y + 10, Math.cos(ang) * bsp, Math.sin(ang) * bsp);
+    var aim = e.aimLock;
+    if (!aim) return;
+    if (e.type === 'bomber') {
+      for (var i = 0; i < 8; i++) {
+        var angle = Math.PI * 2 * i / 8 + e.t * 0.7;
+        fireEnemyBullet(aim.x, aim.y, Math.cos(angle) * 150, Math.sin(angle) * 150);
       }
-      A.play('boss');
-    } else if (e.type === 'mirror') {
-      /* v1.2 镜像机:竖直快弹(与玩家同 X,几乎必中,需走位) */
-      fireEnemyBullet(e.x, e.y + 14, 0, 330);
-      A.play('enemyShoot');
+    } else {
+      var count = e.type === 'sniper' ? 3 : 1;
+      var speed = {gunner:220,sniper:300,mirror:300}[e.type];
+      for (var j = 0; j < count; j++) {
+        var a = aim.angle + (j - (count - 1) / 2) * 0.16;
+        fireEnemyBullet(aim.x, aim.y, Math.cos(a) * speed, Math.sin(a) * speed);
+      }
     }
+    e.aimLock = null;
+    A.play('enemyShoot');
   }
 
   function bossShoot(b) {
@@ -541,6 +530,8 @@
     player.weapon = s.weapon; player.shield = s.shield; player.hp = s.hp; player.hpMax = s.hpMax;
     player.lives = s.lives; player.fireRate = s.fireRate; player.damage = s.damage;
     player.spread = s.spread; player.speedMul = s.speedMul; player.scoreMul = s.scoreMul;
+    player.crit = s.crit; player.critDmg = s.critDmg; player.magnet = s.magnet;
+    player.reflect = s.reflect; player.vamp = s.vamp; player.emp = s.emp;
     A.play('pickup');
     STATE = 'playing';
     setPanel('none');
@@ -710,7 +701,7 @@
     spawnTimer -= dt;
     if (spawnTimer <= 0 && spawnSeq.length) {
       spawnFromSeq();
-      spawnTimer = currentDiff().spawnInterval / 1000;
+      spawnTimer = waveSpawnInterval / 1000;
     }
 
     /* 更新敌机 */
@@ -724,18 +715,11 @@
         if (e.flash > 0) e.flash -= dt;
         continue;
       }
-      E.updateEnemy(e, dt * frostMul, W, H, player.x, player.y);
+      E.updateEnemy(e, dt * frostMul, W, H, player.x, player.y, hudBottom);
       if (e.dead) { enemies.splice(i, 1); continue; } /* 越界逃逸,移除(不计分) */
-      e.fireCd -= dt * frostMul;
-      if (e.type === 'gunner' && e.fireCd <= 0 && e.y > 60 && e.y < 160) {
-        e.fireCd = 1.4; enemyShoot(e);
-      } else if (e.type === 'sniper' && e.fireCd <= 0 && e.y > 150) {
-        e.fireCd = 1.8; enemyShoot(e);
-      } else if (e.type === 'bomber' && e.fireCd <= 0 && e.y > 60) {
-        e.fireCd = 2.4; enemyShoot(e);
-      } else if (e.type === 'mirror' && e.fireCd <= 0 && e.y > 80) {
-        e.fireCd = 1.1; enemyShoot(e);
-      } else if (e.type === 'healer' && e.fireCd <= 0) {
+      if (E.prepareEnemyShot(e, dt * frostMul, H, player.y, hudBottom)) enemyShoot(e);
+      if (e.type === 'healer') e.fireCd -= dt * frostMul;
+      if (e.type === 'healer' && e.fireCd <= 0) {
         /* v1.2 治疗者: 为半径 140 内友军回复 2 HP */
         e.fireCd = 2.6;
         var healed = 0;
@@ -765,7 +749,7 @@
           ordinal = Math.max(0, Math.floor(wave / 5) - 1);
         }
         var entry = L.bossOf(Math.max(0, ordinal));
-        boss = E.spawnBoss(W, { bossHp: bossHp, kind: entry.id });
+        boss = E.spawnBoss(W, { bossHp: bossHp, kind: entry.id, difficulty: DIFFICULTY });
         boss.maxHp = boss.hp;
         A.play('boss');
       }
@@ -926,6 +910,17 @@
     for (var j = 0; j < enemies.length; j++) {
       var e = enemies[j];
       if (e.flash > 0 && Math.floor(e.flash * 20) % 2 === 0) continue;
+      if (e.aimLock || (e.type === 'diver' && e.charge > 0)) {
+        var hint = e.aimLock || {x:e.x,y:e.y,angle:e.diveAngle};
+        ctx.save(); ctx.strokeStyle = R.C.red; ctx.globalAlpha = 0.5;
+        ctx.lineWidth = 1.5; ctx.setLineDash([5, 7]); ctx.beginPath();
+        if (e.type === 'bomber') ctx.arc(hint.x, hint.y, 34, 0, Math.PI * 2);
+        else {
+          ctx.moveTo(hint.x, hint.y);
+          ctx.lineTo(hint.x + Math.cos(hint.angle) * H, hint.y + Math.sin(hint.angle) * H);
+        }
+        ctx.stroke(); ctx.restore();
+      }
       /* v1.2: phantom 相位闪烁 — 1.2s 周期,相位态半透明且不可被命中 */
       if (e.type === 'phantom') {
         var cyc = e.phaseT % 2.4;
@@ -1050,7 +1045,7 @@
     debugSpawnBoss: function (kind, phase) {
       startGame(L.ENDLESS);
       spawnSeq = []; enemies = [];
-      boss = E.spawnBoss(W, { bossHp: 60, kind: kind || 'boss' });
+      boss = E.spawnBoss(W, { bossHp: 60, kind: kind || 'boss', difficulty: DIFFICULTY });
       boss.y = boss.targetY;
       if (phase === 2) boss.hp = Math.round(boss.maxHp * 0.35); /* 压血线让 bossPhase 判定进入二阶段 */
       return { kind: boss.kind, name: boss.name, hp: boss.hp, phase: boss.phase };

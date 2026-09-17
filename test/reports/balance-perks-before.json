@@ -1,0 +1,159 @@
+[
+  {
+    "id": "power",
+    "fields": [
+      "weapon"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "rapid",
+    "fields": [
+      "fireRate"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "damage",
+    "fields": [
+      "damage"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "spread",
+    "fields": [
+      "spread"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "shield",
+    "fields": [
+      "shield"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "repair",
+    "fields": [
+      "hp",
+      "hpMax"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "speed",
+    "fields": [
+      "speedMul"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "life",
+    "fields": [
+      "lives"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "score",
+    "fields": [
+      "scoreMul"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "crit",
+    "fields": [
+      "crit"
+    ],
+    "applied": false,
+    "differences": [
+      {
+        "field": "crit",
+        "expected": 1,
+        "actual": 0
+      }
+    ]
+  },
+  {
+    "id": "critdmg",
+    "fields": [
+      "critDmg"
+    ],
+    "applied": false,
+    "differences": [
+      {
+        "field": "critDmg",
+        "expected": 1,
+        "actual": 0.5
+      }
+    ]
+  },
+  {
+    "id": "magnet",
+    "fields": [
+      "magnet"
+    ],
+    "applied": false,
+    "differences": [
+      {
+        "field": "magnet",
+        "expected": 1,
+        "actual": 0
+      }
+    ]
+  },
+  {
+    "id": "reflect",
+    "fields": [
+      "reflect"
+    ],
+    "applied": false,
+    "differences": [
+      {
+        "field": "reflect",
+        "expected": 1,
+        "actual": 0
+      }
+    ]
+  },
+  {
+    "id": "vamp",
+    "fields": [
+      "vamp"
+    ],
+    "applied": false,
+    "differences": [
+      {
+        "field": "vamp",
+        "expected": 0.04,
+        "actual": 0
+      }
+    ]
+  },
+  {
+    "id": "emp",
+    "fields": [
+      "emp"
+    ],
+    "applied": false,
+    "differences": [
+      {
+        "field": "emp",
+        "expected": 0.4,
+        "actual": 0
+      }
+    ]
+  }
+]

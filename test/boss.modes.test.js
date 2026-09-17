@@ -4,13 +4,17 @@
  * 断言:boss 死亡后推进下一波/下一关,boss 不复活,无运行时错误
  */
 const { chromium } = require('playwright');
+const { pathToFileURL } = require('url');
+const path = require('path');
 
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   const page = await browser.newPage({ viewport: { width: 900, height: 760 } });
   const errors = [];
   page.on('pageerror', e => errors.push(String(e)));
-  const gameUrl = 'file:///D:/ai/biancheng/worksplace/dafeiji/index.html';
+  const gameUrl = pathToFileURL(path.resolve(__dirname, '../index.html')).href;
+  // Advance the browser clock deterministically; retain the real DOM/game loop.
+  await page.clock.install();
   const probe = () => page.evaluate(() => window.__DFJ_PROBE.state());
   const god = on => page.evaluate(on => window.__DFJ_PROBE.godmode(on), on);
   const shot = on => page.evaluate(on => window.__DFJ_PROBE.oneshot(on), on);
@@ -25,9 +29,9 @@ const { chromium } = require('playwright');
   async function testMode(modeData, label, isBossWave, isAdvanced) {
     errors.length = 0;
     await page.goto(gameUrl);
-    await page.waitForTimeout(500);
+    await page.clock.runFor(500);
     await page.click('.mode-btn[data-mode="' + modeData + '"]');
-    await page.waitForTimeout(250);
+    await page.clock.runFor(250);
     await god(true); await shot(true);        /* 无敌+秒伤清小怪 */
 
     /* 阶段1:推进到 boss 波 */
@@ -35,21 +39,21 @@ const { chromium } = require('playwright');
     while (guard++ < 4000) {
       t += 0.04;
       const s = await probe();
-      if (s.STATE === 'upgrade') { await page.click('.perk-card'); await page.waitForTimeout(200); continue; }
+      if (s.STATE === 'upgrade') { await page.click('.perk-card'); await page.clock.runFor(200); continue; }
       if (isBossWave(s)) {
         /* 等 boss 登场 */
         let g2 = 0;
-        while (g2++ < 300) {
+        while (g2++ < 1500) {
           const s2 = await probe();
           if (s2.boss) { bossS = s2.boss; break; }
           await page.mouse.move(sweepX(t += 0.04), 660);
-          await page.waitForTimeout(40);
+          await page.clock.runFor(40);
         }
         if (bossS) reached = true;
         break;
       }
       await page.mouse.move(sweepX(t), 660);
-      await page.waitForTimeout(40);
+      await page.clock.runFor(40);
     }
     if (!reached) { console.log('=== ' + label + ' ===\nFAIL: 未能到达 boss 波/BOSS 未登场'); return { pass: false }; }
     console.log('=== ' + label + ' ===');
@@ -73,7 +77,7 @@ const { chromium } = require('playwright');
           const s3 = await probe();
           if (!s3.boss) { killed = true; break; }
           await page.mouse.move(Math.max(40, Math.min(860, s3.boss.x)), 660);
-          await page.waitForTimeout(40);
+          await page.clock.runFor(40);
         }
         await shot(false);
         break;
@@ -85,17 +89,17 @@ const { chromium } = require('playwright');
         /* 一阶段:跟踪 boss 输出压血线 */
         await page.mouse.move(Math.max(40, Math.min(860, s.boss.x)), 660);
       }
-      await page.waitForTimeout(40);
+      await page.clock.runFor(40);
     }
     const afterKill = await probe();
 
     /* 阶段3:断言推进 + boss 不复活 */
     let advanced = false, respawned = false;
     for (let i = 0; i < 120; i++) {
-      await page.waitForTimeout(50);
+      await page.clock.runFor(50);
       const s = await probe();
       if (s.boss) { respawned = true; break; }
-      if (s.STATE === 'upgrade') { await page.click('.perk-card'); await page.waitForTimeout(300); continue; }
+      if (s.STATE === 'upgrade') { await page.click('.perk-card'); await page.clock.runFor(300); continue; }
       if (isAdvanced(s)) { advanced = true; break; }
     }
     console.log('二阶段出现: ' + phase2Seen + ' | 击杀时杂兵在场: ' + (minionsAtKill.length > 0) + (minionsAtKill.length ? ' (' + minionsAtKill.join(',') + ')' : ''));
