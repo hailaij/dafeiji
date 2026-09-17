@@ -79,11 +79,72 @@
     }
   };
 
+  // Dedicated music bus; bounded lookahead, no timers while paused or hidden.
+  var musicKind = null, musicBus = null, musicStep = 0, musicNext = 0;
+  var musicNodes = [];
+  function stopMusic() {
+    musicNodes.forEach(function (o) { try { o.stop(); o.disconnect(); } catch (e) {} });
+    musicNodes = [];
+    if (musicBus) { musicBus.disconnect(); musicBus = null; }
+    musicKind = null;
+  }
+  function note(type, midi, time, duration, volume, slide) {
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    var hz = 440 * Math.pow(2, (midi - 69) / 12);
+    o.type = type; o.frequency.setValueAtTime(hz, time);
+    if (slide) o.frequency.exponentialRampToValueAtTime(35, time + duration);
+    g.gain.setValueAtTime(0.001, time);
+    g.gain.linearRampToValueAtTime(volume, time + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.001, time + duration);
+    o.connect(g); g.connect(musicBus);
+    musicNodes.push(o);
+    o.onended = function () {
+      o.disconnect(); g.disconnect();
+      var i = musicNodes.indexOf(o); if (i >= 0) musicNodes.splice(i, 1);
+    };
+    o.start(time); o.stop(time + duration + 0.02);
+  }
+  function updateMusic(kind, phase) {
+    if (!ctx || muted || !kind || ctx.state !== 'running') { if (musicKind) stopMusic(); return; }
+    try {
+      if (kind !== musicKind) {
+        stopMusic(); musicKind = kind; musicStep = 0; musicNext = ctx.currentTime + 0.02;
+        musicBus = ctx.createGain(); musicBus.gain.value = 0.55; musicBus.connect(master);
+      }
+      var profile = DFJ.Logic.bossProfile(kind), m = profile.music;
+      var stepTime = 60 / m.bpm / 4;
+      if (musicNext < ctx.currentTime - 0.1) musicNext = ctx.currentTime + 0.01;
+      while (musicNext < ctx.currentTime + 0.10) {
+        var step = musicStep % 64, beat = step % 16;
+        // Four-bar harmony, individual melody, bass, kick and metallic backbeat.
+        var chord = [0, -3, -5, -2][Math.floor(step / 16)];
+        var accent = LIndex(kind);
+        if (step % 2 === 0) {
+          note(m.voice, m.root + 24 + m.motif[(step / 2) % 8] + chord, musicNext, stepTime * 1.6, 0.055);
+        }
+        if (beat % 4 === 0 || (phase === 2 && beat % 4 === 3)) {
+          note('triangle', m.root + chord, musicNext, stepTime * 2.4, 0.10);
+        }
+        if (beat === 0 || beat === 8 || (phase === 2 && beat === 11)) note('sine', 48, musicNext, 0.13, 0.20, true);
+        if (beat === 4 || beat === 12) note('triangle', 91 + accent, musicNext, 0.055, 0.055);
+        if (beat % 2 === accent % 2) note('square', 108 + accent, musicNext, 0.025, 0.012);
+        if (phase === 2 && step % 4 === 3) note('sine', m.root + 36 + m.motif[step % 8], musicNext, stepTime, 0.035);
+        musicNext += stepTime; musicStep++;
+      }
+    } catch (e) { stopMusic(); }
+  }
+  function LIndex(kind) {
+    return Math.max(0, DFJ.Logic.BOSS_ROSTER.findIndex(function (b) { return b.id === kind; }));
+  }
+
   DFJ.Audio = {
     init: init,
+    updateMusic: updateMusic,
+    stopMusic: stopMusic,
     play: function (name) { if (SFX[name]) SFX[name](); },
     setMuted: function (m) {
       muted = !!m;
+      if (muted) stopMusic();
       if (master) { try { master.gain.value = muted ? 0 : VOL; } catch (e) {} }
     },
     isMuted: function () { return muted; },

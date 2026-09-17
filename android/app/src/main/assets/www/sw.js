@@ -1,5 +1,5 @@
 /* NEON STRIKE Service Worker — 离线缓存 */
-const CACHE = 'neon-strike-v9';
+const CACHE = 'neon-strike-v1.4.0';
 const ASSETS = [
   './',
   './index.html',
@@ -10,9 +10,11 @@ const ASSETS = [
   './icons/apple-touch-icon.png',
   './js/core.js',
   './js/logic.js',
+  './js/bosses.js',
   './js/entities.js',
   './js/audio.js',
   './js/render.js',
+  './js/input.js',
   './js/game.js'
 ];
 

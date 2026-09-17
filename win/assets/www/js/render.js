@@ -435,27 +435,6 @@
   };
 
   /* ---- Boss 血条 ---- */
-  R.drawBossBar = function (ctx, w, boss) {
-    if (!boss || boss.dead || boss.y < boss.targetY - 2) return;
-    var bw = Math.min(w - 90, 300), bh = 10;
-    var bx = (w - bw) / 2, by = 56;
-    var ratio = Math.max(0, boss.hp / boss.maxHp);
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
-    ctx.strokeStyle = 'rgba(255,0,229,0.7)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(bx - 2.5, by - 2.5, bw + 5, bh + 5);
-    ctx.shadowColor = C.magenta;
-    ctx.shadowBlur = 8;
-    ctx.fillStyle = ratio > 0.5 ? C.magenta : C.yellow;
-    ctx.fillRect(bx, by, bw * ratio, bh);
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = 'rgba(232,232,240,0.85)';
-    ctx.font = 'bold 10px ui-monospace, Menlo, Consolas, monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('WARNING / ' + (boss.name || 'BOSS'), w / 2, by - 8);
-  };
-
   /* ---- EMP 冲击波环(由 game 层在触发时绘制一次) ---- */
   R.drawEmpWave = function (ctx, x, y, radius, progress) {
     if (progress >= 1) return;

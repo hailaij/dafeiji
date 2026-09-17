@@ -1,0 +1,22 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Boss 战斗与配乐试验场</title>
+<style>body{height:100vh;display:flex;flex-direction:column;overflow:hidden;margin:0;background:#0a0a12;color:#eee;font:14px monospace}header{padding:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}button,select{background:#202032;color:#fff;border:1px solid #ff00e5;padding:8px}iframe{border:0;width:100%;flex:1;min-height:0}p{margin:0 12px 8px;color:#aaa}</style>
+<header><b>BOSS LAB</b><select id="boss" aria-label="Boss"></select><select id="phase" aria-label="阶段"><option value="1">一阶段</option><option value="2">二阶段</option></select><button id="start">开始试战 / 试听</button><button id="mute">静音切换</button><span id="track"></span></header>
+<p>测试专用：无敌；选择 Boss 后开始。预警虚线表示即将发射的方向。暂停键 P；主游戏保持原有进度规则。</p>
+<iframe id="game" src="../index.html" title="游戏试战"></iframe>
+<script>
+const frame = document.getElementById('game');
+frame.onload = () => {
+  const w = frame.contentWindow, select = document.getElementById('boss');
+  select.replaceChildren();
+  w.DFJ.Logic.BOSS_ROSTER.forEach(b => { const o = document.createElement('option'); o.value=b.id; o.textContent=b.name; select.append(o); });
+};
+document.getElementById('start').onclick = () => {
+  const w=frame.contentWindow, kind=document.getElementById('boss').value;
+  w.__DFJ_PROBE.debugSpawnBoss(kind, Number(document.getElementById('phase').value));
+  w.__DFJ_PROBE.godmode(true);
+  const m=w.DFJ.Logic.bossProfile(kind).music;
+  document.getElementById('track').textContent=m.title+' · '+m.bpm+' BPM';
+  frame.focus();
+};
+document.getElementById('mute').onclick=()=>frame.contentWindow.DFJ.Audio.toggle();
+</script></html>

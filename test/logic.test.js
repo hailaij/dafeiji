@@ -286,7 +286,7 @@ t('empParams: 范围/伤害随等级提升', () => {
   const a = Logic.empParams(0, 400);
   const b = Logic.empParams(2, 400);
   ok(b.radius > a.radius && b.dmg > a.dmg && b.stun > a.stun);
-  near(Logic.EMP_COOLDOWN, 20);
+  near(Logic.EMP_COOLDOWN, 10);
 });
 
 /* ---------- v1.2: 肉鸽新强化 ---------- */
@@ -310,7 +310,7 @@ t('rogue: 新强化出现在可用池', () => {
 });
 
 /* ---------- v1.2: 版本 ---------- */
-t('version: v1.3.0', () => { near(Logic.VERSION, '1.3.0'); });
+t('version: v1.4.0', () => { near(Logic.VERSION, '1.4.0'); });
 
 console.log('------------------------------');
 console.log(passed + ' passed, ' + failed + ' failed');

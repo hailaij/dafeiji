@@ -55,3 +55,8 @@
 ## 7. 非目标(YAGNI)
 
 不做:排行榜联网、多人、皮肤系统、构建工具、外部字体/图片素材。
+
+
+## Boss 重设计实现补充
+
+Boss 技能、输出窗口与程序化战斗音乐的当前规范见 [boss-design.md](boss-design.md)，取代上文的通用扇形与通用二阶段描述。新增 `js/bosses.js`，加载于 logic 与 entities 之间。

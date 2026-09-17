@@ -5,7 +5,7 @@
   'use strict';
   var Logic = {};
 
-  Logic.VERSION = '1.3.0';
+  Logic.VERSION = '1.4.0';
   Logic.COMBO_WINDOW_MS = 2000;
   Logic.WEAPON_MAX = 3;
   Logic.HP_MAX = 3;
@@ -278,10 +278,10 @@
   };
 
   /* ---- 主动技能:EMP 电磁脉冲(键盘 E / 技能钮) ----
-   * 冷却 20s;对范围内敌机造成伤害+眩晕,清除屏上敌弹。
+   * 冷却 10s;对范围内敌机造成伤害+眩晕,清除屏上敌弹。
    * radius = min(W,H)*0.28*(1+emp) ; dmg = 3+emp*2 ; stun 1.2s*(1+emp)
    */
-  Logic.EMP_COOLDOWN = 20;
+  Logic.EMP_COOLDOWN = 10;
   Logic.empParams = function (emp, size) {
     return {
       radius: Math.round(Math.max(size, 200) * 0.28 * (1 + (emp || 0))),

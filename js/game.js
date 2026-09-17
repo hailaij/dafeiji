@@ -1,5 +1,5 @@
 /* NEON STRIKE - game.js : 游戏循环(rAF) / 状态机 / 输入 / 碰撞调度 / HUD
- * 依赖加载顺序: core → logic → entities → audio → render → game
+ * 依赖加载顺序: core → logic → bosses → entities → audio → render → game
  */
 (function () {
   'use strict';
@@ -40,7 +40,8 @@
 
   var dom = {};
   var HISCORE_KEY = 'neon-strike-hiscore';
-  var pauseBtn;
+  var pauseBtn, flightInput;
+  var hudBottom = 0, layoutDirty = true;
 
   /* ---- 对象池构造器 ---- */
   function makeBullet() {
@@ -55,14 +56,31 @@
     var ids = ['hud-score', 'hud-wave', 'hud-combo', 'hud-weapon', 'hud-shield', 'hud-lives', 'hud-hp', 'hud-buff',
       'overlay', 'panel-start', 'panel-pause', 'panel-over', 'panel-victory', 'panel-upgrade',
       'final-score', 'victory-score', 'new-record', 'victory-record', 'mode-tag', 'upgrade-cards',
-      'btn-emp', 'emp-cd'];
+      'btn-emp', 'emp-cd', 'hud', 'boss-hud', 'boss-name', 'boss-phase', 'boss-health', 'boss-health-fill', 'boss-skill', 'boss-music'];
     for (var i = 0; i < ids.length; i++) dom[ids[i]] = document.getElementById(ids[i]);
     pauseBtn = document.getElementById('btn-pause');
   }
 
   function pad(n, w) { var s = String(Math.floor(n)); while (s.length < (w || 6)) s = '0' + s; return s; }
 
+  function updateBossHUD() {
+    var visible = !!boss && !boss.dead;
+    if (dom['boss-hud'].classList.contains('hidden') === visible) layoutDirty = true;
+    dom['boss-hud'].classList.toggle('hidden', !visible);
+    if (!visible) return;
+    var profile = L.bossProfile(boss.kind);
+    var ratio = U.clamp(boss.hp / boss.maxHp, 0, 1);
+    dom['boss-name'].textContent = boss.name;
+    dom['boss-phase'].textContent = '阶段 ' + boss.phase;
+    dom['boss-health-fill'].style.transform = 'scaleX(' + ratio + ')';
+    dom['boss-health'].setAttribute('aria-valuenow', Math.round(ratio * 100));
+    dom['boss-skill'].textContent = profile.skill + (boss.pending ? ' · 蓄力' : ' · 装填');
+    dom['boss-music'].textContent = '♫ ' + profile.music.title;
+    dom['boss-hud'].classList.toggle('phase-two', boss.phase === 2);
+    dom['boss-hud'].classList.toggle('charging', !!boss.pending);
+  }
   function updateHUD() {
+    updateBossHUD();
     dom['hud-score'].textContent = pad(score, 6);
     var dLabel = L.difficultyPreset(DIFFICULTY).label;
     if (MODE === L.CAMPAIGN) {
@@ -92,17 +110,17 @@
     /* v1.2: EMP 冷却显示 */
     if (dom['emp-cd'] && dom['btn-emp']) {
       var cdLeft = Math.max(0, empCdUntil - now) / 1000;
-      if (cdLeft > 0) {
-        dom['emp-cd'].textContent = Math.ceil(cdLeft) + 's';
-        dom['btn-emp'].classList.add('cooldown');
-      } else {
-        dom['emp-cd'].textContent = '';
-        dom['btn-emp'].classList.remove('cooldown');
-      }
+      var cooling = cdLeft > 0;
+      dom['emp-cd'].textContent = cooling ? Math.ceil(cdLeft) + 's' : '就绪';
+      dom['btn-emp'].classList.toggle('cooldown', cooling);
+      dom['btn-emp'].style.setProperty('--emp-charge', U.clamp(1 - cdLeft / L.EMP_COOLDOWN, 0, 1));
+      dom['btn-emp'].setAttribute('aria-label', cooling ? 'EMP 冷却中，剩余 ' + Math.ceil(cdLeft) + ' 秒' : '释放 EMP');
+      dom['btn-emp'].setAttribute('aria-disabled', cooling ? 'true' : 'false');
     }
   }
 
   function setPanel(name) {
+    if (name !== 'none' && flightInput) { flightInput.reset(); keys = {}; }
     dom['overlay'].classList.toggle('hidden', name === 'none');
     ['panel-start', 'panel-pause', 'panel-over', 'panel-victory', 'panel-upgrade'].forEach(function (p) {
       dom[p].classList.toggle('hidden', p !== name);
@@ -114,7 +132,25 @@
   }
 
   /* ---- 尺寸 / DPR ---- */
+  function layoutBattlefield() {
+    if (!dom['hud']) return;
+    if (layoutDirty || !window.ResizeObserver) {
+      hudBottom = Math.ceil(dom['hud'].getBoundingClientRect().bottom);
+      layoutDirty = false;
+    }
+    if (boss) {
+      var target = hudBottom + 58;
+      var arrived = boss.y >= boss.targetY;
+      if (target !== boss.targetY) {
+        boss.targetY = target;
+        if (arrived) boss.y = target;
+        // A resize must not leave an old, invisible aiming solution behind.
+        boss.pending = null; boss.fireCd = Math.max(boss.fireCd, 0.75);
+      }
+    }
+  }
   function resize() {
+    layoutDirty = true;
     DPR = Math.min(window.devicePixelRatio || 1, 2);
     W = window.innerWidth; H = window.innerHeight;
     canvas.width = Math.round(W * DPR);
@@ -123,6 +159,12 @@
     canvas.style.height = H + 'px';
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     stars = R.makeStars(W, H);
+    if (flightInput) flightInput.reset();
+    if (boss) {
+      boss.x = U.clamp(boss.x, boss.r + 10, W - boss.r - 10);
+      boss.pending = null; boss.fireCd = Math.max(boss.fireCd, 0.75);
+    }
+    layoutBattlefield();
   }
 
   /* ---- 高分持久化 ---- */
@@ -297,119 +339,15 @@
   }
 
   function bossShoot(b) {
-    var i, ang;
-    var base = Math.PI / 2; /* 朝下 */
-    var n = b.phase === 1 ? 5 : 9;
-    var sp = b.phase === 1 ? 210 : 260;
-    var spread = Math.PI * 0.5;
-    /* v1.2.3: 11 种 Boss 全部具备专属弹幕,不再复用经典扇形 */
-    if (b.kind === 'hive') {
-      /* 蜂巢母舰:超宽慢速蜂群散弹(二阶段另召喚织网者) */
-      var hn = b.phase === 1 ? 7 : 11;
-      for (i = 0; i < hn; i++) {
-        ang = base - 1.15 + (2.3 * i) / (hn - 1);
-        fireEnemyBullet(b.x, b.y + 26, Math.cos(ang) * 150, Math.sin(ang) * 150);
-      }
-    } else if (b.kind === 'phantom') {
-      /* 幻影核心:窄幅瞄准扇(相位瞬移见 update 内 blink 逻辑) */
-      var phdx = player.x - b.x, phdy = player.y - (b.y + 16);
-      var phd = Math.sqrt(phdx * phdx + phdy * phdy) || 1;
-      var pbase = Math.atan2(phdy, phdx);
-      var pn = b.phase === 1 ? 3 : 5;
-      for (i = 0; i < pn; i++) {
-        var pa = pbase + (i - (pn - 1) / 2) * 0.18;
-        fireEnemyBullet(b.x, b.y + 16, Math.cos(pa) * 270, Math.sin(pa) * 270);
-      }
-    } else if (b.kind === 'fortress') {
-      /* 移动堡垒:横向碾压弹墙(重甲减伤见命中结算) */
-      for (i = 0; i < 5; i++) {
-        var fx = U.clamp(b.x - 90 + (180 * i) / 4, 20, W - 20); /* 窄屏防出界秒消失 */
-        fireEnemyBullet(fx, b.y + 30, 0, 140);
-      }
-    } else if (b.kind === 'storm') {
-      /* 风暴支配者:三臂连续旋转螺旋 */
-      var arms = 3, armsN = b.phase === 1 ? 1 : 2;
-      for (i = 0; i < arms * armsN; i++) {
-        ang = base + (i % arms) * ((Math.PI * 2) / arms) + b.t * 2.4 + Math.floor(i / arms) * (Math.PI / arms);
-        var ssp = 150 + Math.floor(i / arms) * 45 + (b.phase === 1 ? 0 : 40);
-        fireEnemyBullet(b.x, b.y + 20, Math.cos(ang) * ssp, Math.sin(ang) * ssp);
-      }
-    } else if (b.kind === 'nexus') {
-      /* 涅槃中枢:旋转六角阵环,每次发射整体旋转 30° */
-      b.hexOff = (b.hexOff || 0) + Math.PI / 6;
-      var rings = b.phase === 1 ? 1 : 2;
-      for (var ri = 0; ri < rings; ri++) {
-        for (i = 0; i < 6; i++) {
-          ang = (Math.PI * 2 * i) / 6 + b.hexOff + ri * (Math.PI / 6);
-          var nsp = 150 + ri * 40;
-          fireEnemyBullet(b.x, b.y, Math.cos(ang) * nsp, Math.sin(ang) * nsp);
-        }
-      }
-    } else if (b.kind === 'vortex') {
-      /* 湮灭漩涡:高速旋转散射 */
-      var vn = b.phase === 1 ? 8 : 12;
-      var vsp = b.phase === 1 ? 165 : 205;
-      for (i = 0; i < vn; i++) {
-        ang = (Math.PI * 2 * i) / vn + b.t * 3.0;
-        fireEnemyBullet(b.x, b.y + 10, Math.cos(ang) * vsp, Math.sin(ang) * vsp);
-      }
-    } else if (b.kind === 'juggernaut') {
-      /* 无敌重炮:大口径瞄准弹;二阶段天降炮火覆盖全屏 */
-      for (i = -1; i <= 1; i++) {
-        var jdx = player.x - b.x, jdy = player.y - (b.y + 24);
-        var jd = Math.sqrt(jdx * jdx + jdy * jdy) || 1;
-        var ja = Math.atan2(jdy, jdx) + i * 0.20;
-        fireEnemyBullet(b.x, b.y + 24, Math.cos(ja) * 190, Math.sin(ja) * 190, 7);
-      }
-      if (b.phase === 2) {
-        for (i = 0; i < 6; i++) {
-          fireEnemyBullet(30 + Math.random() * (W - 60), -10, 0, 200 + Math.random() * 80, 5);
-        }
-      }
-    } else if (b.kind === 'nova') {
-      /* 超新星:全向放射弹 */
-      n = b.phase === 1 ? 12 : 18;
-      for (i = 0; i < n; i++) {
-        ang = (Math.PI * 2 * i) / n + b.t * 0.5;
-        fireEnemyBullet(b.x, b.y, Math.cos(ang) * 170, Math.sin(ang) * 170);
-      }
-    } else if (b.kind === 'twin') {
-      /* 双子星环:左右炮口交替瞄准三连 */
-      var side = (Math.floor(b.t * 2) % 2 === 0) ? -1 : 1;
-      var sx = b.x + side * 22;
-      for (i = -1; i <= 1; i++) {
-        var dx2 = player.x - sx, dy2 = player.y - (b.y + 20);
-        var d2 = Math.sqrt(dx2 * dx2 + dy2 * dy2) || 1;
-        var a2 = Math.atan2(dy2, dx2) + i * 0.14;
-        fireEnemyBullet(sx, b.y + 20, Math.cos(a2) * 300, Math.sin(a2) * 300);
-      }
-    } else if (b.kind === 'omega') {
-      /* 欧米茄终局:混合弹幕(旋转环 + 二阶段天降炮火) */
-      var oN = b.phase === 1 ? 6 : 12;
-      for (i = 0; i < oN; i++) {
-        ang = (Math.PI * 2 * i) / oN + b.t * 1.6;
-        fireEnemyBullet(b.x, b.y + 16, Math.cos(ang) * 160, Math.sin(ang) * 160);
-      }
-      if (b.phase === 2) {
-        for (i = 0; i < 3; i++) {
-          fireEnemyBullet(30 + Math.random() * (W - 60), -10, 0, 190 + Math.random() * 60, 5);
-        }
-      }
-    } else {
-      for (var j = 0; j < n; j++) {
-        ang = base - spread / 2 + (spread * j) / (n - 1);
-        fireEnemyBullet(b.x, b.y + 30, Math.cos(ang) * sp, Math.sin(ang) * sp);
-      }
+    b.pending.shots.forEach(function (s) { fireEnemyBullet(s.x, s.y, s.vx, s.vy, s.r); });
+    if (b.pending.summon && enemies.length < 4) {
+      enemies.push(E.spawnEnemy(b.pending.summon, W, currentDiff()));
     }
-    if (b.phase === 2) {
-      aimAtPlayer(b.x, b.y + 20, 280);
-      if (b.summonT > 3 && enemies.length < 6) {
-        b.summonT = 0;
-        /* v1.2: hive 召唤 weaver,其余召唤 grunt */
-        enemies.push(E.spawnEnemy(b.kind === 'hive' ? 'weaver' : 'grunt', W, currentDiff()));
-      }
-    }
-    A.play('boss');
+    b.recovery = b.pending.rest;
+    b.fireCd = b.pending.rest;
+    b.pending = null;
+    b.attackIndex = (b.attackIndex || 0) + 1;
+    A.play('enemyShoot');
   }
 
   /* ---- 粒子/爆炸 ---- */
@@ -611,7 +549,7 @@
   }
 
 /* ---- v1.2 主动技能: EMP 电磁脉冲 ----
-   * 冷却 20s;范围伤害+眩晕+清屏敌弹 */
+   * 冷却 10s;范围伤害+眩晕+清屏敌弹 */
   function triggerEMP() {
     if (STATE !== 'playing' || !player) return;
     if (now < empCdUntil) return;
@@ -632,7 +570,7 @@
     if (boss && !boss.dead) {
       var bdx = boss.x - player.x, bdy = boss.y - player.y;
       if (bdx * bdx + bdy * bdy <= pm.radius * pm.radius) {
-        boss.hp -= pm.dmg * 0.35 * (boss.kind === 'fortress' ? 0.6 : 1); boss.flash = 0.12;
+        boss.hp -= pm.dmg * 0.35 * L.bossDamageScale(boss); boss.flash = 0.12;
         boss.fireCd += pm.stun * 0.6;  /* Boss 免疫全额眩晕,延长射击间隔 */
         if (boss.hp <= 0) { boss.dead = true; killEnemy(boss); boss = null; bossKilled = true; }
       }
@@ -647,6 +585,7 @@
   function pause() {
     if (STATE !== 'playing') return;
     STATE = 'paused';
+    A.stopMusic();
     setPanel('panel-pause');
   }
   function resume() {
@@ -672,18 +611,7 @@
     });
     window.addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; });
 
-    canvas.addEventListener('pointermove', function (e) {
-      pointer.active = true;
-      pointer.x = e.clientX; pointer.y = e.clientY;
-      if (e.pointerType === 'touch') pointer.y -= 70; /* 手指上方偏移 */
-    });
-    canvas.addEventListener('pointerdown', function (e) {
-      if (STATE === 'playing') {
-        pointer.active = true;
-        pointer.x = e.clientX; pointer.y = e.clientY - (e.pointerType === 'touch' ? 70 : 0);
-      }
-    });
-    canvas.addEventListener('pointerleave', function () { pointer.active = false; });
+    flightInput = DFJ.Input.bind(canvas, pointer, function () { return STATE === 'playing'; });
 
     /* 模式选择按钮 */
     var modeBtns = document.querySelectorAll('.mode-btn');
@@ -702,16 +630,8 @@
     document.getElementById('btn-menu-victory').addEventListener('click', goMenu);
     /* v1.2: EMP 技能按钮(右下角) */
     empBtn = document.getElementById('btn-emp');
-    if (empBtn) {
-      empBtn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        triggerEMP();
-      });
-    }
-
-    /* 暂停按钮(右上角) - 支持触屏和鼠标 */
-    document.getElementById('btn-pause').addEventListener('click', function (e) {
-      e.stopPropagation();
+    if (empBtn) DFJ.Input.action(empBtn, triggerEMP);
+    DFJ.Input.action(pauseBtn, function () {
       if (STATE === 'playing') pause();
       else if (STATE === 'paused') resume();
     });
@@ -728,6 +648,8 @@
 
     window.addEventListener('blur', function () { if (STATE === 'playing') pause(); });
     window.addEventListener('resize', resize);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+    if (window.ResizeObserver) new ResizeObserver(function () { layoutDirty = true; layoutBattlefield(); }).observe(dom['hud']);
   }
 
   function startBtn() { A.init(); startGame(lastMode || L.ENDLESS); }
@@ -764,7 +686,7 @@
     }
 
     player.x = U.clamp(player.x, player.r + 4, W - player.r - 4);
-    player.y = U.clamp(player.y, player.r + 4, H - player.r - 4);
+    player.y = U.clamp(player.y, Math.min(hudBottom + player.r + 4, H - player.r - 4), H - player.r - 4);
 
     /* 自动开火 */
     player.fireCd -= dt;
@@ -852,45 +774,25 @@
     /* 更新 Boss */
     if (boss) {
       boss.phase = L.bossPhase(boss.hp / boss.maxHp);
-      if (boss.kind === 'phantom') {
-        /* 幻影核心:相位瞬移 — 追踪玩家,周期闪现并散射 */
+      boss.recovery = Math.max(0, (boss.recovery || 0) - dt);
+      if (!boss.pending) E.updateBoss(boss, dt, W);
+      else {
         boss.t += dt;
-        if (boss.flash > 0) boss.flash -= dt;
-        if (boss.y < boss.targetY) {
-          boss.y += 90 * dt;
-          if (boss.y >= boss.targetY) boss.y = boss.targetY;
-        } else {
-          boss.x += U.clamp(player.x - boss.x, -70 * dt, 70 * dt);
-          boss.x = U.clamp(boss.x, boss.r + 10, W - boss.r - 10);
-          boss.blinkT = (boss.blinkT || 0) + dt;
-          var blinkIv = boss.phase === 1 ? 3.0 : 1.9;
-          if (boss.blinkT >= blinkIv) {
-            boss.blinkT = 0;
-            burst(boss.x, boss.y, R.C.red, 14, 180);
-            boss.x = 50 + Math.random() * (W - 100);
-            boss.y = 100 + Math.random() * 60;
-            burst(boss.x, boss.y, R.C.red, 18, 220);
-            A.play('boss');
-            for (var bi = -1; bi <= 1; bi++) {
-              var bldx = player.x - boss.x, bldy = player.y - (boss.y + 14);
-              var bld = Math.sqrt(bldx * bldx + bldy * bldy) || 1;
-              var bla = Math.atan2(bldy, bldx) + bi * 0.22;
-              fireEnemyBullet(boss.x, boss.y + 14, Math.cos(bla) * 300, Math.sin(bla) * 300);
-            }
-          }
-        }
-      } else {
-        E.updateBoss(boss, dt, W);
+        boss.flash = Math.max(0, boss.flash - dt);
       }
       boss.fireCd -= dt;
       if (boss.y >= boss.targetY && boss.fireCd <= 0) {
-        /* v1.2.3: 重型 Boss 延长射击间隔,弹幕型缩短 */
-        var cdP1 = { juggernaut: 2.1, omega: 1.5, storm: 1.3 }[boss.kind] || 1.7;
-        var cdP2 = { juggernaut: 1.7, omega: 1.15, storm: 1.0 }[boss.kind] || 1.3;
-        boss.fireCd = boss.phase === 1 ? cdP1 : cdP2;
-        bossShoot(boss);
+        if (boss.pending) bossShoot(boss);
+        else {
+          if (boss.kind === 'phantom') {
+            burst(boss.x, boss.y, R.C.red, 14, 180);
+            boss.x = W * ((boss.attackIndex || 0) % 2 ? 0.25 : 0.75);
+            burst(boss.x, boss.y, R.C.red, 14, 180);
+          }
+          boss.pending = L.bossAttack(boss, W, player.x, player.y);
+          boss.fireCd = boss.pending.warning;
+        }
       }
-      boss.summonT += dt;
       if (boss.dead) { boss = null; bossKilled = true; }
     }
 
@@ -921,7 +823,7 @@
       }
       if (!b.dead && boss && !boss.dead && L.circleHit(b.x, b.y, b.r, boss.x, boss.y, boss.r)) {
         /* 移动堡垒重甲:受到伤害 ×0.6 */
-        boss.hp -= (b.dmg || player.damage) * (boss.kind === 'fortress' ? 0.6 : 1);
+        boss.hp -= (b.dmg || player.damage) * L.bossDamageScale(boss);
         b.dead = true; boss.flash = 0.08;
         if (boss.hp <= 0) { boss.dead = true; killEnemy(boss); boss = null; bossKilled = true; }
       }
@@ -1052,7 +954,21 @@
     if (boss) {
       if (!(boss.flash > 0 && Math.floor(boss.flash * 20) % 2 === 0))
         R.drawC(ctx, R.sprite('boss-' + boss.kind) || R.sprite('boss'), boss.x, boss.y);
-      R.drawBossBar(ctx, W, boss);
+      if (boss.pending) {
+        ctx.save();
+        ctx.strokeStyle = R.C.red;
+        ctx.globalAlpha = 0.25 + 0.3 * Math.max(0, 1 - boss.fireCd / boss.pending.warning);
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 10]);
+        boss.pending.shots.forEach(function (s) {
+          var speed = Math.sqrt(s.vx * s.vx + s.vy * s.vy) || 1;
+          ctx.beginPath(); ctx.moveTo(s.x, s.y);
+          ctx.lineTo(s.x + s.vx / speed * H * 1.5, s.y + s.vy / speed * H * 1.5);
+          ctx.stroke();
+        });
+        ctx.restore();
+      }
+
     }
 
     /* 子弹 */
@@ -1094,6 +1010,8 @@
     var dt = Math.min((ts - lastT) / 1000, 0.05); /* 钳制防切页跳帧 */
     lastT = ts;
     if (dt > 0) update(dt);
+    layoutBattlefield();
+    A.updateMusic(STATE === 'playing' && boss ? boss.kind : null, boss ? boss.phase : 1);
     draw();
     requestAnimationFrame(loop);
   }
@@ -1131,6 +1049,7 @@
     /* 测试辅助:直接生成指定 kind 的 Boss(仅测试环境调用) */
     debugSpawnBoss: function (kind, phase) {
       startGame(L.ENDLESS);
+      spawnSeq = []; enemies = [];
       boss = E.spawnBoss(W, { bossHp: 60, kind: kind || 'boss' });
       boss.y = boss.targetY;
       if (phase === 2) boss.hp = Math.round(boss.maxHp * 0.35); /* 压血线让 bossPhase 判定进入二阶段 */

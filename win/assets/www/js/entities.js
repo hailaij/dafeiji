@@ -136,7 +136,7 @@
     for (i = 0; i < roster.length; i++) { if (roster[i].id === cfg.kind) { entry = roster[i]; break; } }
     return {
       type: 'boss', kind: entry.id, name: entry.name, t: 0, dead: false, flash: 0,
-      x: w / 2, y: -110, targetY: 130,
+      x: w / 2, y: -110, targetY: 180,
       r: 44, hp: Math.round(cfg.bossHp * entry.hp), maxHp: Math.round(cfg.bossHp * entry.hp),
       score: entry.score, fireCd: 1.6, phase: 1, strafeT: 0, summonT: 3,
       /* v1.2.3: 重甲 Boss 横移更慢,凸显体量差 */
