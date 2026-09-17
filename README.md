@@ -2,7 +2,7 @@
 
 赛博朋克风格网页打飞机游戏。零依赖、零构建,双击即可玩;已内置 Android 打包工程与 Windows 桌面版(WebView2 壳),可一键产出安装包。
 
-**当前版本:v1.4.0**
+**当前版本:v1.4.1**
 
 ## 快速开始
 
@@ -15,7 +15,7 @@
 
 ### Android APK
 
-本版本 APK 尚未生成（构建环境的 Gradle 本地回环连接失败）。Android 源码和离线资源已同步至 v1.4.0；可用安装包仍为 [v1.3.0](https://github.com/hailaij/dafeiji/releases/tag/v1.3.0)，不包含本次更新。
+已打包产物:**`android/dist/neon-strike-1.4.1.apk`**（Android 7.0+，离线运行）。
 
 构建 APK 后传到安卓手机,开启「允许安装未知来源」后直接安装即可。游戏完全离线运行,无网络权限。
 
@@ -33,7 +33,7 @@ cd android
 
 ### Windows 桌面版
 
-已打包产物:**`win/dist/neon-strike-1.4.0-win64.exe`**(≈69 MB,Win10/11 x64)
+已打包产物:**`win/dist/neon-strike-1.4.1-win64.exe`**(≈69 MB,Win10/11 x64)
 
 单文件自包含,双击即玩,无需安装 .NET(仅需系统自带 WebView2 运行时);游戏资产内嵌 exe,完全离线运行。
 
@@ -156,19 +156,33 @@ dafeiji/
 │   │   ├── assets/www/              # 离线游戏资产(与根目录同步)
 │   │   └── res/                     # 图标/主题/字符串
 │   └── dist/                        # APK 产物
-│       └── neon-strike-1.4.0.apk    # 构建成功后的目标产物（本次未生成）
+│       └── neon-strike-1.4.1.apk    # Android 安装包
 ├── win/                             # Windows 桌面版(WebView2 壳)
 │   ├── build-local.ps1              # 一键构建脚本
 │   ├── NeonStrike.csproj            # .NET 8 WinForms 工程
 │   ├── assets/www/                  # 离线游戏资产(与根目录同步)
 │   └── dist/                        # exe 产物
-│       └── neon-strike-1.4.0-win64.exe
+│       └── neon-strike-1.4.1-win64.exe
 └── test/                            # 自动化测试
 ```
 
 详细设计见 `design.md`;Android 打包细节见 `android/README.md`,Windows 桌面版打包细节见 `win/README.md`。样式规范:cyberpunk 霓虹(青=己方 / 品红·红·橙=敌方 / 黄=道具与重装坦克)。
 
+## Git 连接排查
+
+若 Git 报 `Recv failure: Connection was reset` 或直连 GitHub 超时，而本机代理可正常访问，请先用 `git -c http.proxy=http://127.0.0.1:<实际端口> ls-remote origin refs/heads/main` 验证代理。确认成功后，可通过 `git config --local remote.origin.proxy http://127.0.0.1:<实际端口>` 仅为当前仓库保存设置。代理必须处于运行状态；恢复直连可执行 `git config --local --unset remote.origin.proxy`。不要关闭 TLS 证书校验。
+
 ## 更新日志
+
+## [1.4.1] - 2026-09-17
+### 修复
+- Android 构建使用项目内 Unix 域套接字目录，解决本机 JDK 17 在系统临时目录出现的回环连接错误
+- 显式指定 Gradle 项目目录，支持从仓库根目录调用构建脚本
+- APK 按 versionName 自动命名，避免误选旧构建产物
+### 变更
+- Android versionCode 10，网页和 Windows 版本统一为 1.4.1
+- 补充 Git 直连失败时使用本地代理的排查说明；代理配置仅保存在本机仓库
+
 
 ## [1.4.0] - 2026-09-17
 ### 新增

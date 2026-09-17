@@ -59,12 +59,12 @@ cd <仓库根>\android
 
 ```powershell
 cd <仓库根>\android
-.\gradlew.bat assembleDebug
+.\build-local.ps1
 ```
 
 Wrapper 会自动下载 Gradle 8.7,`local.properties`(gitignore)由脚本生成或手动写 `sdk.dir=<SDK 路径>`。
 
-产物: `android\dist\neon-strike-1.4.0.apk`(复制到任意安卓设备安装即可)。
+产物: `android\dist\neon-strike-1.4.1.apk`(复制到任意安卓设备安装即可)。
 
 ## 同步游戏资产
 
@@ -82,3 +82,10 @@ cd <仓库根>
 - **返回键**: 最小化应用而非销毁 WebView,进度不丢
 - **minSdk 24** (Android 7.0) / **targetSdk 34** (Android 14)
 - 签名: debug 自动签名;release 需自备 keystore
+
+
+### Windows 构建回环连接错误
+
+如果旧版 JDK 17 在 `Selector.open()` / `PipeImpl` 报 `Unable to establish loopback connection`，且根因包含 `UnixDomainSockets.connect0: Invalid argument: connect`，这可能是系统临时目录中的 Unix 域套接字连接失败，不是 Gradle 下载错误。
+
+构建脚本为启动 JVM 和 Gradle 子进程统一设置 `jdk.net.unixdomain.tmpdir` 到项目的 `.gradle/socket-temp`，结束后恢复原 `JAVA_TOOL_OPTIONS`。无需关闭防火墙或修改系统临时目录。脚本显式传递 `-p` 项目路径，可从仓库根目录执行 `./android/build-local.ps1`。APK 输出文件名自动读取 `versionName`。

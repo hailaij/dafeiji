@@ -50,13 +50,28 @@ Set-Content -Path (Join-Path $androidDir 'local.properties') -Value "sdk.dir=$sd
 $dist = Join-Path $androidDir 'dist'
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 
-Write-Host "== gradlew assembleDebug"
-& (Join-Path $androidDir 'gradlew.bat') assembleDebug --no-daemon
-if ($LASTEXITCODE -ne 0) { throw "gradle build failed: $LASTEXITCODE" }
+# JDK 17 uses Unix-domain sockets for its internal NIO pipe on Windows.
+# Some Windows TEMP locations reject connect() although bind() succeeds.
+# Use a project-local socket directory for both the launcher and daemon JVMs.
+$socketDir = Join-Path $androidDir '.gradle\socket-temp'
+New-Item -ItemType Directory -Force -Path $socketDir | Out-Null
+$previousJavaToolOptions = $env:JAVA_TOOL_OPTIONS
+try {
+    $socketOption = '"-Djdk.net.unixdomain.tmpdir=' + $socketDir + '"'
+    $env:JAVA_TOOL_OPTIONS = ($previousJavaToolOptions + ' ' + $socketOption).Trim()
+    Write-Host "== gradlew assembleDebug"
+    & (Join-Path $androidDir 'gradlew.bat') -p $androidDir assembleDebug --no-daemon
+    if ($LASTEXITCODE -ne 0) { throw "gradle build failed: $LASTEXITCODE" }
+} finally {
+    $env:JAVA_TOOL_OPTIONS = $previousJavaToolOptions
+}
 
-# 收集 APK
-$apk = Get-ChildItem (Join-Path $androidDir 'app\build\outputs\apk\debug') -Filter '*.apk' | Select-Object -First 1
-if (-not $apk) { throw 'APK not produced' }
-Copy-Item $apk.FullName (Join-Path $dist $apk.Name) -Force
-Write-Host ""
-Write-Host "== BUILD OK: dist\$($apk.Name)" -ForegroundColor Green
+# Collect the exact debug output under a versioned, reproducible filename.
+$apk = Join-Path $androidDir 'app\build\outputs\apk\debug\app-debug.apk'
+if (-not (Test-Path -LiteralPath $apk)) { throw 'APK not produced' }
+$gradleConfig = Get-Content (Join-Path $androidDir 'app\build.gradle.kts') -Raw
+$versionMatch = [regex]::Match($gradleConfig, 'versionName\s*=\s*"([^"]+)"')
+if (-not $versionMatch.Success) { throw 'Cannot read Android versionName' }
+$artifactName = 'neon-strike-' + $versionMatch.Groups[1].Value + '.apk'
+Copy-Item -LiteralPath $apk -Destination (Join-Path $dist $artifactName) -Force
+Write-Host "== BUILD OK: dist\$artifactName" -ForegroundColor Green
