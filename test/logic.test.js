@@ -310,7 +310,7 @@ t('rogue: 新强化出现在可用池', () => {
 });
 
 /* ---------- v1.2: 版本 ---------- */
-t('version: v1.4.2', () => { near(Logic.VERSION, '1.4.2'); });
+t('version: v1.5.0', () => { near(Logic.VERSION, '1.5.0'); });
 
 console.log('------------------------------');
 console.log(passed + ' passed, ' + failed + ' failed');

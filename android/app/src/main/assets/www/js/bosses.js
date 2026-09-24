@@ -27,6 +27,12 @@
     if (b.kind === 'nexus' && b.recovery > 0) return 1.35;
     return 1;
   };
+  L.turretPosition = function(b,t) {return {x:b.x+t.side*58,y:b.y+18};};
+  L.damageTurret = function(b,t,amount) {
+    var actual=Math.max(0,Math.min(t.hp,amount));t.hp=Math.max(0,t.hp-amount);
+    if(t.hp===0 && b.pending)b.pending.shots=b.pending.shots.filter(function(s){return s.turret!==b.turrets.indexOf(t);});
+    return actual;
+  };
   L.bossAttack = function (b, width, px, py) {
     var shots = [], turn = b.attackIndex || 0, p2 = b.phase === 2;
     var x = b.x, y = b.y + 26, aim = Math.atan2(py - y, px - x);
@@ -54,7 +60,14 @@
         fan(Math.min(width - 24, x + 65), y, 2.04, p2 ? 5 : 3, 0.65, 145);
         break;
       case 'phantom': fan(x, y, aim, p2 ? 5 : 3, 0.42, 260); break;
-      case 'fortress': gate(width * (turn % 2 ? 0.7 : 0.3), p2 ? 160 : 130); break;
+      case 'fortress':
+        gate(width * (turn % 2 ? 0.7 : 0.3), p2 ? 160 : 130);
+        shots.forEach(function(s){s.turret=s.x<width/2?0:1;});
+        if(b.turrets){
+          shots=shots.filter(function(s){return b.turrets[s.turret].hp>0;});
+          if(!b.turrets.some(function(t){return t.hp>0;}))shot(x,y,Math.PI/2,130);
+        }
+        break;
       case 'storm':
         for (var a = 0; a < 3; a++) fan(x, y, turn * (p2 ? -0.45 : 0.45) + a * Math.PI * 2 / 3, 3, 0.3, 175);
         break;

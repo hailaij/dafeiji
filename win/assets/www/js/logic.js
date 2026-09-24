@@ -5,7 +5,33 @@
   'use strict';
   var Logic = {};
 
-  Logic.VERSION = '1.4.2';
+  Logic.VERSION = '1.5.0';
+  // Hulls never multiply weapon damage or firing interval.
+  Logic.SHIPS = [
+    {id:'falcon',name:'游隼',speed:1,hp:3,r:12,shield:0,color:'#70e7ff',desc:'均衡 · 生命 3 · 标准移速 · 判定半径 12'},
+    {id:'bulwark',name:'壁垒',speed:.8,hp:3,r:12,shield:1,color:'#a8d9ff',desc:'防守 · 生命 3 · 初始护盾 1 · 移速 −20%'},
+    {id:'wisp',name:'灵翼',speed:1.2,hp:3,r:14,shield:0,color:'#96ffe2',desc:'机动 · 生命 3 · 移速 +20% · 判定半径 14（更易受击）'}
+  ];
+  Logic.WEAPONS = [
+    {id:'pulse',name:'脉冲主炮',interval:1,damage:1,color:'#70e7ff',desc:'集中连射 · 基准持续输出 · 弹速 560'},
+    {id:'heavy',name:'集中重弹',interval:1.4,damage:1.4,color:'#a8d9ff',desc:'单发 +40% · 间隔 +40% · 弹速 440 · 持续输出与脉冲相同'},
+    {id:'fan',name:'扇形能量弹',interval:1,damage:1,color:'#96ffe2',desc:'中央保留 80% 火力 · 两侧各 20% · 全命中输出 120%'}
+  ];
+  Logic.shipPreset = function(id){return Logic.SHIPS.filter(function(s){return s.id===id;})[0]||Logic.SHIPS[0];};
+  Logic.weaponPreset = function(id){return Logic.WEAPONS.filter(function(w){return w.id===id;})[0]||Logic.WEAPONS[0];};
+  Logic.weaponShots = function(id,level,spread){
+    var weapon=Logic.weaponPreset(id),lv=Math.max(1,Math.min(3,level||1)),shots=[],sp=weapon.id==='heavy'?440:560;
+    function add(x,angle,mul){shots.push({x:x,y:-16,vx:Math.sin(angle)*sp,vy:-Math.cos(angle)*sp,mul:mul*weapon.damage});}
+    function mount(x,angle){
+      if(weapon.id==='fan'){add(x,angle,.8);add(x-4,angle-.22,.2);add(x+4,angle+.22,.2);}
+      else add(x,angle,1);
+    }
+    if(lv===1)mount(0,0);
+    else {mount(-7,0);mount(7,0);if(lv===3){mount(-14,-.10);mount(14,.10);}}
+    for(var j=0;j<(spread||0);j++){mount(-18-j*6,-.16-j*.08);mount(18+j*6,.16+j*.08);}
+    return shots;
+  };
+
   Logic.COMBO_WINDOW_MS = 2000;
   Logic.WEAPON_MAX = 3;
   Logic.HP_MAX = 3;
@@ -153,9 +179,37 @@
     { id: 'critdmg', label: '致命一击', desc: '暴击伤害 +50%',              apply: function (s) { s.critDmg += 0.5; } },
     { id: 'magnet', field: 'magnet', max: 3, label: '磁力收集', desc: '道具吸附范围 +50%',        apply: function (s) { s.magnet = Math.min(3, s.magnet + 1); } },
     { id: 'reflect', field: 'reflect', max: 2, label: '回旋护板', desc: '受击时向四周散射弹片',    apply: function (s) { s.reflect = Math.min(2, s.reflect + 1); } },
-    { id: 'vamp',   label: '虹吸协议', desc: '击杀 12% 概率回 1 HP',        apply: function (s) { s.vamp += 0.04; } },
-    { id: 'emp',    label: '过载线圈', desc: 'EMP 冲击范围与眩晕 +40%',    apply: function (s) { s.emp += 0.4; } }
+    { id: 'vamp',   label: '虹吸协议', desc: '击杀回血概率 +4%',        apply: function (s) { s.vamp += 0.04; } },
+    { id: 'emp',    label: '过载线圈', desc: 'EMP 等级 +0.4：提升范围、伤害与眩晕',    apply: function (s) { s.emp += 0.4; } }
   ];
+
+  Logic.SYNERGIES = [
+    {id:'critical', name:'弱点处决', desc:'弱点分析 + 致命一击：暴击额外 +50% 伤害', ready:function(s){return s.crit >= 1 && s.critDmg >= 1;}},
+    {id:'pulse', name:'电磁回路', desc:'过载线圈 + 磁力收集：EMP 每击杀返还 0.6 秒冷却，单次最多 3 秒', ready:function(s){return s.emp >= 0.4 && s.magnet >= 1;}},
+    {id:'sustain', name:'荆棘再生', desc:'回旋护板 + 虹吸协议：反击伤害翻倍，每 12 次击杀恢复 1 HP', ready:function(s){return s.reflect >= 1 && s.vamp > 0;}}
+  ];
+  Logic.synergies = function(s) { return Logic.SYNERGIES.filter(function(x){return x.ready(s || {});}); };
+  Logic.synergyProgress = function(s,id) {
+    var parts=id==='critical'?[s.crit>=1,s.critDmg>=1]:id==='pulse'?[s.emp>=0.4,s.magnet>=1]:[s.reflect>=1,s.vamp>0];
+    return parts.filter(Boolean).length;
+  };
+  Logic.hasSynergy = function(s,id) { return Logic.synergies(s).some(function(x){return x.id===id;}); };
+  // Preserve the enemy budget; group three entries into readable lanes and pauses.
+  Logic.formation = function(types, ordinal, difficulty) {
+    var lanes = [[0.25,0.5,0.75],[0.2,0.8,0.5],[0.35,0.5,0.65]];
+    var names = ['横列推进','两翼夹击','中央护航'];
+    var index = Math.max(0,ordinal-1)%3;
+    types=types.slice();
+    if(index===2) for(var j=0;j+2<types.length;j+=3) {
+      var leader=types.slice(j,j+3).findIndex(function(t){return ['tank','gunner','healer','bomber'].indexOf(t)>=0;});
+      if(leader>=0){var swap=types[j+1];types[j+1]=types[j+leader];types[j+leader]=swap;}
+    }
+    var gap = difficulty==='easy'?0.85:difficulty==='hard'?0.65:0.75;
+    return types.map(function(type,i){
+      var size=Math.min(3,types.length-Math.floor(i/3)*3),slot=i%3;
+      return {type:type,lane:lanes[index][slot],name:names[index],gap:slot===size-1?size-(size-1)*gap:gap};
+    });
+  };
 
   /* 归一化肉鸽状态(补齐默认字段) */
   Logic.rogueState = function (s) {
@@ -197,6 +251,17 @@
       var j = Math.floor(rng() * (i + 1));
       var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
     }
+    // Offer one unfinished build component, keeping the other choices random.
+    state = Logic.rogueState(state);
+    var wanted=[];
+    if(state.crit>=1 && !(state.critDmg>=1)) wanted.push('critdmg');
+    if(state.critDmg>=1 && !(state.crit>=1)) wanted.push('crit');
+    if(state.emp>=0.4 && !(state.magnet>=1)) wanted.push('magnet');
+    if(state.magnet>=1 && !(state.emp>=0.4)) wanted.push('emp');
+    if(state.reflect>=1 && !(state.vamp>0)) wanted.push('vamp');
+    if(state.vamp>0 && !(state.reflect>=1)) wanted.push('reflect');
+    var match=pool.findIndex(function(p){return wanted.indexOf(p.id)>=0;});
+    if(match>0){var continuation=pool.splice(match,1)[0];pool.unshift(continuation);}
     return pool.slice(0, Math.max(1, Math.floor(count || 3)));
   };
 

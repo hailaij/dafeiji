@@ -10,5 +10,8 @@ android/local.properties
 android/dist/*.apk
 
 # 临时产物
-*.log
 Thumbs.db
+
+# 本地归档与可再生成的测试截图
+.local/
+test/artifacts/

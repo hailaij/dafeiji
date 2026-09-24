@@ -31,6 +31,7 @@ const path = require('path');
     await page.goto(gameUrl);
     await page.clock.runFor(500);
     await page.click('.mode-btn[data-mode="' + modeData + '"]');
+    await page.click('#btn-launch');
     await page.clock.runFor(250);
     await god(true); await shot(true);        /* 无敌+秒伤清小怪 */
 

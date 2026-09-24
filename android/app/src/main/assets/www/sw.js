@@ -1,5 +1,5 @@
 /* NEON STRIKE Service Worker — 离线缓存 */
-const CACHE = 'neon-strike-v1.4.2';
+const CACHE = 'neon-strike-v1.5.0';
 const ASSETS = [
   './',
   './index.html',
@@ -15,6 +15,7 @@ const ASSETS = [
   './js/audio.js',
   './js/render.js',
   './js/input.js',
+  './js/hangar.js',
   './js/game.js'
 ];
 

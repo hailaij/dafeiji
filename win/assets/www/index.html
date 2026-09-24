@@ -34,6 +34,7 @@
     <div class="hud-actions">
       <button id="btn-pause" class="pause-btn" title="暂停(P)" aria-label="暂停游戏"><span class="pause-icon" aria-hidden="true"></span></button>
     </div>
+    <div id="hud-build" class="hud-build" aria-live="off"></div>
     <div id="boss-hud" class="boss-hud hidden">
       <div class="boss-heading"><span id="boss-name"></span><span id="boss-phase"></span></div>
       <div id="boss-health" class="boss-health" role="progressbar" aria-label="Boss 生命值" aria-valuemin="0" aria-valuemax="100"><div id="boss-health-fill"></div></div>
@@ -46,6 +47,10 @@
     <div class="panel" id="panel-start">
       <h1 class="glitch" data-text="NEON STRIKE">NEON STRIKE</h1>
       <p class="sub">霓虹突袭 · 纵版射击</p>
+      <div class="hangar-preview"><canvas id="hangar-canvas" width="420" height="170" aria-label="当前机体自动射击预览"></canvas><span class="preview-label">机库 · 自动试射</span></div>
+      <div class="ship-heading"><strong id="ship-name">游隼 · 脉冲主炮</strong><button id="btn-hangar" type="button" aria-expanded="false" aria-controls="hangar-options">机体 / 武器</button></div>
+      <p id="ship-description" class="ship-description"></p>
+      <div id="hangar-options" class="hidden" role="group" aria-label="自由搭配机体与武器"></div>
       <div class="diff-select">
         <span class="diff-label">难度</span>
         <div class="diff-btns">
@@ -55,11 +60,13 @@
         </div>
       </div>
       <div class="mode-select">
-        <button class="btn mode-btn" data-mode="endless">无限模式</button>
-        <button class="btn mode-btn" data-mode="campaign">闯关模式</button>
-        <button class="btn mode-btn roguelike" data-mode="roguelike">肉鸽模式</button>
+        <button class="btn mode-btn active" aria-pressed="true" data-mode="endless">无限模式</button>
+        <button class="btn mode-btn" aria-pressed="false" data-mode="campaign">闯关模式</button>
+        <button class="btn mode-btn roguelike" aria-pressed="false" data-mode="roguelike">肉鸽模式</button>
       </div>
-      <p class="hint">无限: 波次无尽追求高分 · 闯关: 10 关通关<br>肉鸽: 每 3 波三选一强化,永久叠加<br><br>移动: WASD / 方向键 / 鼠标 / 触屏<br>自动开火 · P 或 Esc 暂停 · E 释放 EMP</p>
+      <p id="launch-summary" class="launch-summary" aria-live="polite"></p>
+      <button class="btn launch-btn" id="btn-launch">开始出击 →</button>
+      <details class="game-help"><summary>操作与玩法帮助</summary><p>移动：WASD / 方向键 / 鼠标 / 触屏；自动开火。P / Esc 暂停，E 释放 EMP。手机可双指同时移动与释放 EMP。<br>无限：挑战生存与高分；闯关：完成 10 关；肉鸽：每 3 波选择强化。机型武器可继续升级，并兼容肉鸽组合。</p></details>
     </div>
     <div class="panel hidden" id="panel-pause">
       <h1>已暂停</h1>
@@ -73,6 +80,7 @@
       <h1 class="glitch" data-text="GAME OVER">GAME OVER</h1>
       <p class="sub">得分 <span id="final-score">0</span></p>
       <p class="sub new-record hidden" id="new-record">★ 新纪录</p>
+      <p id="run-over" class="run-summary"></p>
       <div class="panel-actions">
         <button class="btn" id="btn-restart">↻ 重新开始</button>
         <button class="btn btn-ghost" id="btn-menu-over">⌂ 返回主菜单</button>
@@ -82,6 +90,7 @@
       <h1 class="glitch" data-text="VICTORY">VICTORY</h1>
       <p class="sub">通关！最终得分 <span id="victory-score">0</span></p>
       <p class="sub new-record hidden" id="victory-record">★ 新纪录</p>
+      <p id="run-victory" class="run-summary"></p>
       <div class="panel-actions">
         <button class="btn" id="btn-victory-restart">↻ 再来一局</button>
         <button class="btn btn-ghost" id="btn-menu-victory">⌂ 返回主菜单</button>
@@ -90,6 +99,7 @@
     <div class="panel hidden" id="panel-upgrade">
       <h1 class="upgrade-title">选择强化</h1>
       <p class="sub">三选一 · 永久生效</p>
+      <p id="build-progress" class="build-progress"></p>
       <div id="upgrade-cards"></div>
     </div>
   </div>
@@ -103,6 +113,7 @@
   <script src="js/audio.js"></script>
   <script src="js/render.js"></script>
   <script src="js/input.js"></script>
+  <script src="js/hangar.js"></script>
   <script src="js/game.js"></script>
   <script>
     // PWA Service Worker 注册(仅 http/https 环境,file:// 下自动跳过)

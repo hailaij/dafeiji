@@ -1,0 +1,74 @@
+[
+  {
+    "mode": "endless",
+    "difficulty": "easy",
+    "gunnerSpeed": 175.71840000000003,
+    "bossHp": 72,
+    "critBefore": 0,
+    "critAfter": 1
+  },
+  {
+    "mode": "endless",
+    "difficulty": "normal",
+    "gunnerSpeed": 225.28,
+    "bossHp": 90,
+    "critBefore": 0,
+    "critAfter": 1
+  },
+  {
+    "mode": "endless",
+    "difficulty": "hard",
+    "gunnerSpeed": 252.31360000000004,
+    "bossHp": 126,
+    "critBefore": 0,
+    "critAfter": 1
+  },
+  {
+    "mode": "campaign",
+    "difficulty": "easy",
+    "gunnerSpeed": 171.6,
+    "bossHp": 35,
+    "critBefore": 0,
+    "critAfter": 1
+  },
+  {
+    "mode": "campaign",
+    "difficulty": "normal",
+    "gunnerSpeed": 220,
+    "bossHp": 44,
+    "critBefore": 0,
+    "critAfter": 1
+  },
+  {
+    "mode": "campaign",
+    "difficulty": "hard",
+    "gunnerSpeed": 246.40000000000003,
+    "bossHp": 61,
+    "critBefore": 0,
+    "critAfter": 1
+  },
+  {
+    "mode": "roguelike",
+    "difficulty": "easy",
+    "gunnerSpeed": 175.71840000000003,
+    "bossHp": 72,
+    "critBefore": 0,
+    "critAfter": 1
+  },
+  {
+    "mode": "roguelike",
+    "difficulty": "normal",
+    "gunnerSpeed": 225.28,
+    "bossHp": 90,
+    "critBefore": 0,
+    "critAfter": 1
+  },
+  {
+    "mode": "roguelike",
+    "difficulty": "hard",
+    "gunnerSpeed": 252.31360000000004,
+    "bossHp": 126,
+    "critBefore": 0,
+    "critAfter": 1
+  }
+]

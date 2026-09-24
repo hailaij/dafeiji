@@ -1,0 +1,123 @@
+[
+  {
+    "id": "power",
+    "fields": [
+      "weapon"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "rapid",
+    "fields": [
+      "fireRate"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "damage",
+    "fields": [
+      "damage"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "spread",
+    "fields": [
+      "spread"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "shield",
+    "fields": [
+      "shield"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "repair",
+    "fields": [
+      "hp",
+      "hpMax"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "speed",
+    "fields": [
+      "speedMul"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "life",
+    "fields": [
+      "lives"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "score",
+    "fields": [
+      "scoreMul"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "crit",
+    "fields": [
+      "crit"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "critdmg",
+    "fields": [
+      "critDmg"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "magnet",
+    "fields": [
+      "magnet"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "reflect",
+    "fields": [
+      "reflect"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "vamp",
+    "fields": [
+      "vamp"
+    ],
+    "applied": true,
+    "differences": []
+  },
+  {
+    "id": "emp",
+    "fields": [
+      "emp"
+    ],
+    "applied": true,
+    "differences": []
+  }
+]

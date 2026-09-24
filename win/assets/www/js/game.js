@@ -27,6 +27,7 @@
   var DIFFICULTY = 'normal'; /* easy | normal | hard */
   var level = 0, levelWave = 0, levelPlan = [], campaignClearT = -1;
   var rogueChoices = [];
+  var runStats, encounter = "", spawnGap = 1;
   var lastMode = L.ENDLESS;
   var score = 0, combo = 0, lastKillAt = -1;
   var hiScore = 0;
@@ -56,7 +57,7 @@
     var ids = ['hud-score', 'hud-wave', 'hud-combo', 'hud-weapon', 'hud-shield', 'hud-lives', 'hud-hp', 'hud-buff',
       'overlay', 'panel-start', 'panel-pause', 'panel-over', 'panel-victory', 'panel-upgrade',
       'final-score', 'victory-score', 'new-record', 'victory-record', 'mode-tag', 'upgrade-cards',
-      'btn-emp', 'emp-cd', 'hud', 'boss-hud', 'boss-name', 'boss-phase', 'boss-health', 'boss-health-fill', 'boss-skill', 'boss-music'];
+      'run-over', 'run-victory', 'build-progress', 'hud-build', 'btn-emp', 'emp-cd', 'hud', 'boss-hud', 'boss-name', 'boss-phase', 'boss-health', 'boss-health-fill', 'boss-skill', 'boss-music'];
     for (var i = 0; i < ids.length; i++) dom[ids[i]] = document.getElementById(ids[i]);
     pauseBtn = document.getElementById('btn-pause');
   }
@@ -71,7 +72,7 @@
     var profile = L.bossProfile(boss.kind);
     var ratio = U.clamp(boss.hp / boss.maxHp, 0, 1);
     dom['boss-name'].textContent = boss.name;
-    dom['boss-phase'].textContent = '阶段 ' + boss.phase;
+    dom['boss-phase'].textContent = '阶段 ' + boss.phase + (boss.turrets ? ' · 炮台 '+boss.turrets.filter(function(t){return t.hp>0;}).length+'/2' : '');
     dom['boss-health-fill'].style.transform = 'scaleX(' + ratio + ')';
     dom['boss-health'].setAttribute('aria-valuenow', Math.round(ratio * 100));
     dom['boss-skill'].textContent = profile.skill + (boss.pending ? ' · 蓄力' : ' · 装填');
@@ -95,7 +96,7 @@
     }
     dom['hud-combo'].textContent = combo > 1 ? 'COMBO \u00d7' + L.comboMultiplier(combo).toFixed(1) : 'COMBO \u00d71';
     if (!player) return; /* player 创建前的启动态,保留 HTML 默认值 */
-    dom['hud-weapon'].textContent = 'PWR ' + player.weapon;
+    dom['hud-weapon'].textContent = L.shipPreset(player.ship).name + ' PWR ' + player.weapon;
     dom['hud-shield'].textContent = 'SHIELD ' + player.shield;
     dom['hud-lives'].textContent = 'LIVES ' + player.lives;
     dom['hud-hp'].textContent = 'HP ' + player.hp + '/' + player.hpMax;
@@ -191,7 +192,10 @@
       var j = Math.floor(Math.random() * (i + 1));
       var tmp = seq[i]; seq[i] = seq[j]; seq[j] = tmp;
     }
-    return seq;
+    var ordinal=MODE===L.CAMPAIGN?(level-1)*4+levelWave:wave;
+    if(!cfg.boss && ordinal>=4){var guard=seq.indexOf('grunt');if(guard>=0)seq[guard]='guardian';}
+    if(!cfg.boss && ordinal>=3 && ordinal%3===0){var cargo=seq.lastIndexOf('grunt');if(cargo>=0)seq[cargo]='transport';}
+    return L.formation(seq, MODE === L.CAMPAIGN ? (level-1)*4+levelWave : wave, DIFFICULTY);
   }
 
   /* 当前波难度 */
@@ -249,11 +253,12 @@
 
   function spawnFromSeq() {
     if (!spawnSeq.length) return;
-    var type = spawnSeq.shift();
+    var entry = spawnSeq.shift();
+    var type = entry.type; spawnGap = entry.gap; encounter = entry.name;
     var en = E.spawnEnemy(type, W, currentDiff());
     /* v1.2: 精英怪 — 波次>=6 起 12% 概率,血量x2.5 体积x1.2 得分x3,紫色光环 */
     var eliteWave = (MODE === L.CAMPAIGN) ? level : wave;
-    if (eliteWave >= 6 && type !== 'boss' && Math.random() < 0.12) {
+    if (eliteWave >= 6 && type !== 'boss' && type !== 'guardian' && type !== 'transport' && Math.random() < 0.12) {
       en.elite = true;
       en.hp *= 2.5; en.hp0 = en.hp;
       en.r *= 1.2;
@@ -262,6 +267,8 @@
     } else {
       en.hp0 = en.hp;
     }
+    if (!en.optional) en.x = U.clamp(W * entry.lane, en.r + 20, W - en.r - 20);
+    if (en.baseX != null) { en.baseX = en.x; en.amp = Math.min(en.amp, en.x-en.r-4, W-en.x-en.r-4); }
     enemies.push(en);
   }
 
@@ -270,33 +277,22 @@
     var b = pbullets.obtain();
     b.x = x; b.y = y; b.vx = vx; b.vy = vy; b.r = 3; b.dead = false;
     b.dmg = player.__lastDmg || player.damage;
+    b.weaponId = player.weaponId; b.tier=player.weapon;
+    b.source = "weapon"; b.bonus = player.__lastBonus || 0;
   }
 
   function playerFire() {
-    var sp = 560;
     var rageOn = player.rageUntil > now;   /* 狂暴: 射速由 fireCd 端控制,此处弹速+伤害由 rollCrit 路径 */
     var crit = L.rollCrit(player);
     var dmg = player.damage * (crit.crit ? crit.mul : 1) * (rageOn ? 1.5 : 1);
+    var extra = crit.crit && L.hasSynergy(player,"critical") ? player.damage * 0.5 * (rageOn ? 1.5 : 1) : 0;
+    dmg += extra; player.__lastBonus = extra;
     if (crit.crit) A.play('hit');
     player.__lastDmg = dmg;
-    if (player.weapon === 1) {
-      firePlayerBullet(player.x, player.y - 16, 0, -sp);
-    } else if (player.weapon === 2) {
-      firePlayerBullet(player.x - 7, player.y - 12, 0, -sp);
-      firePlayerBullet(player.x + 7, player.y - 12, 0, -sp);
-    } else {
-      firePlayerBullet(player.x - 7, player.y - 12, 0, -sp);
-      firePlayerBullet(player.x + 7, player.y - 12, 0, -sp);
-      firePlayerBullet(player.x - 14, player.y - 10, -sp * 0.10, -sp * 0.995);
-      firePlayerBullet(player.x + 14, player.y - 10, sp * 0.10, -sp * 0.995);
-    }
-    /* 肉鸽 spread:额外外斜弹道 (收束散射角度,提升有效打击面) */
-    for (var s = 0; s < (player.spread || 0); s++) {
-      var off = 18 + s * 6;
-      var ang = 0.16 + s * 0.08;
-      firePlayerBullet(player.x - off, player.y - 8, -sp * Math.sin(ang), -sp * Math.cos(ang));
-      firePlayerBullet(player.x + off, player.y - 8, sp * Math.sin(ang), -sp * Math.cos(ang));
-    }
+    L.weaponShots(player.weaponId,player.weapon,player.spread).forEach(function(shot){
+      player.__lastDmg=dmg*shot.mul;player.__lastBonus=extra*shot.mul;
+      firePlayerBullet(player.x+shot.x,player.y+shot.y,shot.vx,shot.vy);
+    });
     A.play('shoot');
   }
 
@@ -328,6 +324,7 @@
   }
 
   function bossShoot(b) {
+    b.lastShotT = b.t;
     b.pending.shots.forEach(function (s) { fireEnemyBullet(s.x, s.y, s.vx, s.vy, s.r); });
     if (b.pending.summon && enemies.length < 4) {
       enemies.push(E.spawnEnemy(b.pending.summon, W, currentDiff()));
@@ -356,8 +353,31 @@
     }
   }
 
+  function dealDamage(e, amount, source, bonus) {
+    var scale=E.shieldScale(e,now); amount*=scale; bonus=(bonus||0)*scale;
+    var actual = Math.max(0, Math.min(e.hp, amount));
+    runStats[source] += actual;
+    if (bonus) runStats.synergyDamage += actual * Math.min(1, bonus / amount);
+    e.hp -= amount;
+  }
+  function showSummary(id) {
+    var names = L.synergies(player).map(function(x){return x.name;}).join(' / ') || '尚未成型';
+    dom[id].textContent = (MODE === L.CAMPAIGN ? '第 '+level+' 关 · 第 '+levelWave+' 波' : '第 '+wave+' 波') + '\n作战 ' + Math.floor(runStats.seconds) + ' 秒 · 击破 ' + runStats.kills + ' 架 · Boss ' + runStats.bosses +
+      '\n主炮伤害 ' + Math.round(runStats.weapon) + ' · EMP 伤害 ' + Math.round(runStats.emp) + ' · 反击伤害 ' + Math.round(runStats.reflect) +
+      '\nEMP 使用 ' + runStats.empUses + ' 次 · 清弹 ' + runStats.cleared + ' 发 · 最高连击 ' + runStats.combo +
+      '\n组合额外伤害 ' + Math.round(runStats.synergyDamage) + ' · 回能 ' + runStats.refund.toFixed(1) + ' 秒 · 再生 ' + runStats.healing + ' HP' +
+      '\n流派：' + names + '\n' + (STATE === 'victory' ? '完成全部关卡' : '致命伤害：' + runStats.cause);
+  }
+
   function killEnemy(e) {
+    if (e.__rewarded) return;
+    e.__rewarded = true;
     e.dead = true;
+    runStats.kills++; if (e.type === "boss") runStats.bosses++;
+    if (L.hasSynergy(player,"sustain")) {
+      runStats.sustainKills++;
+      if (runStats.sustainKills % 12 === 0 && player.hp < player.hpMax) { player.hp++; runStats.healing++; }
+    }
     var color = e.type === 'boss' ? R.C.magenta : (e.type === 'phantom' ? R.C.red : (e.type === 'bomber' ? R.C.yellow : (e.type === 'healer' ? R.C.cyan : R.C.magenta)));
     burst(e.x, e.y, color, e.type === 'boss' ? 42 : 14, e.type === 'boss' ? 260 : 180);
     if (e.type === 'boss') A.play('bigBoom'); else A.play('boom');
@@ -365,6 +385,7 @@
 
     combo = L.nextCombo(combo, now, lastKillAt).combo;
     lastKillAt = now;
+    runStats.combo = Math.max(runStats.combo,combo);
     score += Math.round(L.scoreKill(e.score || 0, combo) * (player.scoreMul || 1) * currentDiff().scoreMul);
 
     /* v1.2: 虹吸协议 — 概率回 1 HP */
@@ -374,7 +395,8 @@
     }
 
     /* 道具掉落 */
-    if (e.type === 'boss') { dropPowerup(e.x, e.y, true); }
+    if (e.type === 'transport') { dropPowerup(e.x,e.y,true); }
+    else if (e.type === 'boss') { dropPowerup(e.x, e.y, true); }
     else if (e.type === 'splitter') {
       /* 分裂成两个小 grunt */
       for (var s = -1; s <= 1; s += 2) {
@@ -425,8 +447,17 @@
     burst(p.x, p.y, R.C.yellow, 12, 140);
   }
 
-  function hurtPlayer() {
-    if (player.invUntil > now) return;
+  function hurtPlayer(cause) {
+    if (STATE !== 'playing' || player.invUntil > now) return;
+    runStats.cause = cause || '敌方攻击';
+    if (player.reflect > 0) {
+      var enhanced = L.hasSynergy(player,'sustain');
+      for (var ri=0;ri<8;ri++) {
+        var a=ri*Math.PI/4, shot=pbullets.obtain();
+        shot.x=player.x;shot.y=player.y;shot.vx=Math.cos(a)*320;shot.vy=Math.sin(a)*320;
+        shot.r=3;shot.dead=false;shot.dmg=player.reflect*(enhanced?2:1);shot.source='reflect';shot.bonus=enhanced?player.reflect:0;
+      }
+    }
     if (player.shield > 0) {
       player.shield--;
       player.invUntil = now + 800;
@@ -458,7 +489,9 @@
     MODE = mode || lastMode || L.ENDLESS;
     lastMode = MODE;
     A.init();
-    player = E.createPlayer(W, H);
+    runStats = {seconds:0,kills:0,bosses:0,weapon:0,emp:0,reflect:0,synergyDamage:0,empUses:0,cleared:0,combo:0,refund:0,healing:0,sustainKills:0,cause:"未知"};
+    encounter = "编队接近";
+    player = E.createPlayer(W, H, DFJ.Hangar ? DFJ.Hangar.selected() : 'falcon', DFJ.Hangar && DFJ.Hangar.selectedWeapon ? DFJ.Hangar.selectedWeapon() : 'pulse');
     player.lives = L.difficultyPreset(DIFFICULTY).lives; /* 难度决定命数 */
     enemies = []; boss = null; bossKilled = false; powerups = [];
     pbullets.clear(); ebullets.clear(); particles.clear();
@@ -480,6 +513,7 @@
     var isNew = score >= hiScore && score > 0;
     dom['final-score'].textContent = String(score);
     dom['new-record'].classList.toggle('hidden', !isNew);
+    showSummary('run-over');
     setPanel('panel-over');
   }
 
@@ -490,6 +524,7 @@
     var isNew = score >= hiScore && score > 0;
     dom['victory-score'].textContent = String(score);
     dom['victory-record'].classList.toggle('hidden', !isNew);
+    showSummary('run-victory');
     setPanel('panel-victory');
   }
 
@@ -510,6 +545,7 @@
   function openUpgrade() {
     ebullets.clear(); /* 清残余敌弹,避免升级面板结束后残留伤害 */
     rogueChoices = L.rogueRoll(player, 3, Math.random);
+    dom['build-progress'].textContent = L.SYNERGIES.map(function(x){return (x.ready(player)?'✓ 已激活 · ':L.synergyProgress(player,x.id)+'/2 · ')+x.name+'：'+x.desc;}).join('\n');
     var host = dom['upgrade-cards'];
     host.innerHTML = '';
     for (var i = 0; i < rogueChoices.length; i++) {
@@ -517,6 +553,9 @@
         var card = document.createElement('button');
         card.className = 'perk-card';
         card.innerHTML = '<span class="perk-label">' + perk.label + '</span><span class="perk-desc">' + perk.desc + '</span>';
+        var future = L.rogueApply(player,perk.id);
+        var unlock = L.synergies(future).filter(function(x){return !x.ready(player);});
+        if (unlock.length) card.innerHTML += '<span class="perk-unlock">激活：'+unlock.map(function(x){return x.name;}).join(' / ')+'</span>';
         card.addEventListener('click', function () { choosePerk(perk.id); });
         host.appendChild(card);
       })(rogueChoices[i]);
@@ -544,30 +583,39 @@
   function triggerEMP() {
     if (STATE !== 'playing' || !player) return;
     if (now < empCdUntil) return;
+    runStats.empUses++; var killsBefore = runStats.kills;
     var pm = L.empParams(player.emp, Math.min(W, H));
     empCdUntil = now + L.EMP_COOLDOWN * 1000;
     empWave = { x: player.x, y: player.y, maxR: pm.radius, t: 0, dur: 0.5 };
     var i, e;
+    // Disable support links before applying any EMP damage, regardless of array order.
+    enemies.forEach(function(g){if(g.type==='guardian'&&!g.dead&&Math.hypot(g.x-player.x,g.y-player.y)<=pm.radius)g.__stunUntil=now+pm.stun*1000;});
     /* 范围内敌机伤害+眩晕 */
     for (i = enemies.length - 1; i >= 0; i--) {
       e = enemies[i];
+      if (e.dead || e.warning>0) continue;
       var dx = e.x - player.x, dy = e.y - player.y;
       if (dx * dx + dy * dy <= pm.radius * pm.radius) {
-        e.hp -= pm.dmg; e.flash = 0.12;
+        dealDamage(e, pm.dmg, "emp", 0); e.flash = 0.12;
         e.__stunUntil = now + pm.stun * 1000;
         if (e.hp <= 0) { e.dead = true; killEnemy(e); enemies.splice(i, 1); }
       }
     }
     if (boss && !boss.dead) {
+      (boss.turrets||[]).forEach(function(t){var pos=L.turretPosition(boss,t);if(t.hp>0&&Math.hypot(pos.x-player.x,pos.y-player.y)<=pm.radius)runStats.emp+=L.damageTurret(boss,t,pm.dmg*.35);});
       var bdx = boss.x - player.x, bdy = boss.y - player.y;
       if (bdx * bdx + bdy * bdy <= pm.radius * pm.radius) {
-        boss.hp -= pm.dmg * 0.35 * L.bossDamageScale(boss); boss.flash = 0.12;
+        dealDamage(boss, pm.dmg * 0.35 * L.bossDamageScale(boss), "emp", 0); boss.flash = 0.12;
         boss.fireCd += pm.stun * 0.6;  /* Boss 免疫全额眩晕,延长射击间隔 */
         if (boss.hp <= 0) { boss.dead = true; killEnemy(boss); boss = null; bossKilled = true; }
       }
     }
     /* 清除全场敌弹 */
-    ebullets.forEach(function (b) { b.dead = true; });
+    ebullets.forEach(function (b) { if (!b.dead) runStats.cleared++; b.dead = true; });
+    if (L.hasSynergy(player,'pulse')) {
+      var refund = Math.min(3, (runStats.kills-killsBefore)*0.6);
+      empCdUntil -= refund*1000; runStats.refund += refund;
+    }
     A.play('bigBoom');
     shake = Math.max(shake, 10);
     burst(player.x, player.y, R.C.cyan, 24, 220);
@@ -593,12 +641,13 @@
         if (STATE === 'playing') pause(); else if (STATE === 'paused') resume();
       }
       if (k === 'e') triggerEMP();
+      if (k === 'enter' && e.target && e.target.closest && e.target.closest('button,summary,input,select,textarea')) return;
       if (k === 'enter') {
         if (STATE === 'start') startGame(lastMode || L.ENDLESS);
         else if (STATE === 'gameover' || STATE === 'victory') startGame(lastMode || L.ENDLESS);
       }
       keys[k] = true;
-      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].indexOf(k) >= 0) e.preventDefault();
+      if (STATE === 'playing' && ['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].indexOf(k) >= 0) e.preventDefault();
     });
     window.addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; });
 
@@ -609,9 +658,12 @@
     for (var mi = 0; mi < modeBtns.length; mi++) {
       modeBtns[mi].addEventListener('click', function () {
         A.init();
-        startGame(this.getAttribute('data-mode'));
+        lastMode=this.getAttribute('data-mode');
+        if(DFJ.Hangar)DFJ.Hangar.mode(lastMode);
+        for(var k=0;k<modeBtns.length;k++){var active=modeBtns[k]===this;modeBtns[k].classList.toggle('active',active);modeBtns[k].setAttribute('aria-pressed',String(active));}
       });
     }
+    document.getElementById('btn-launch').addEventListener('click',startBtn);
     document.getElementById('btn-resume').addEventListener('click', resume);
     document.getElementById('btn-pause-restart').addEventListener('click', function () { startGame(lastMode || L.ENDLESS); });
     document.getElementById('btn-pause-menu').addEventListener('click', goMenu);
@@ -633,6 +685,7 @@
       diffBtns[di].addEventListener('click', function () {
         DIFFICULTY = this.getAttribute('data-diff');
         syncDiffBtns();
+        if(DFJ.Hangar)DFJ.Hangar.difficulty(DIFFICULTY);
         A.play('pickup');
       });
     }
@@ -669,8 +722,8 @@
       var dx = pointer.x - player.x, dy = pointer.y - player.y;
       var dist = Math.sqrt(dx * dx + dy * dy);
       if (dist > 0.5) {
-        /* 指数平滑跟随:大位移快速追上、接近时平滑减速,帧率无关,跟手不拖沓 */
-        var f = Math.min(1, 20 * player.speedMul * dt);
+        /* 与键盘共用机体速度上限，接近目标时指数平滑。 */
+        var f = Math.min(1 - Math.exp(-20 * dt), speed * dt / dist);
         player.x += dx * f;
         player.y += dy * f;
       }
@@ -681,9 +734,9 @@
 
     /* 自动开火 */
     player.fireCd -= dt;
-    if (player.fireCd <= 0) {
+    while (player.fireCd <= 0) {
       var rate = player.fireRate * (player.rageUntil > now ? 2 : 1); /* v1.2 狂暴射速x2 */
-      player.fireCd = (player.weapon === 1 ? 0.16 : player.weapon === 2 ? 0.14 : 0.11) / rate;
+      player.fireCd += (player.weapon === 1 ? 0.16 : player.weapon === 2 ? 0.14 : 0.11) * L.weaponPreset(player.weaponId).interval / rate;
       playerFire();
     }
   }
@@ -693,6 +746,8 @@
     now = performance.now();
     if (STATE !== 'playing') return;
 
+    runStats.seconds += dt;
+    dom["hud-build"].textContent = encounter + (MODE === L.ROGUELIKE ? " · " + (L.synergies(player).map(function(x){return x.name;}).join(" / ") || "组合待成型") : "");
     movePlayer(dt);
     gridOff += 40 * dt;
     R.updateStars(stars, dt, H);
@@ -701,7 +756,7 @@
     spawnTimer -= dt;
     if (spawnTimer <= 0 && spawnSeq.length) {
       spawnFromSeq();
-      spawnTimer = waveSpawnInterval / 1000;
+      spawnTimer = waveSpawnInterval / 1000 * spawnGap;
     }
 
     /* 更新敌机 */
@@ -730,15 +785,17 @@
           if (hdx * hdx + hdy * hdy <= 140 * 140 && he.hp < he.hp0) {
             he.hp = Math.min(he.hp0, he.hp + 2);
             he.flash = 0.1; healed++;
-            burst(he.x, he.y, R.C.cyan, 4, 60);
+            burst(he.x, he.y, R.C.green, 4, 60);
           }
         }
-        if (healed) A.play('pickup');
+        if (healed) { e.healAt=e.t; A.play('pickup'); }
       }
     }
 
+    E.updateShields(enemies,now);
+
     /* Boss 登场 (在清理死敌机之后,避免时序错位漏触发;该波 Boss 已死则不再登场) */
-    if (boss === null && !bossKilled && spawnSeq.length === 0 && enemies.length === 0) {
+    if (boss === null && !bossKilled && spawnSeq.length === 0 && !enemies.some(function(e){return !e.dead&&!e.optional;})) {
       var bossHp = currentBossHp();
       if (bossHp > 0) {
         /* v1.2: 按图鉴轮换 Boss 种类(第 N 个 Boss = bossOf(N-1)) */
@@ -798,16 +855,25 @@
       if (b.dead) return;
       for (var j = enemies.length - 1; j >= 0; j--) {
         var en = enemies[j];
-        if (!en.dead && !en.ghosted && L.circleHit(b.x, b.y, b.r, en.x, en.y, en.r)) {
-          en.hp -= (b.dmg || player.damage); b.dead = true;
+        if (!en.dead && !(en.warning>0) && !en.ghosted && L.circleHit(b.x, b.y, b.r, en.x, en.y, en.r)) {
+          dealDamage(en, b.dmg || player.damage, b.source || "weapon", b.bonus); b.dead = true;
           en.flash = 0.08;
           if (en.hp <= 0) { en.dead = true; killEnemy(en); }
           break;
         }
       }
+      if(!b.dead&&boss&&!boss.dead&&boss.turrets){
+        boss.turrets.forEach(function(t){var pos=L.turretPosition(boss,t);
+          if(!b.dead&&t.hp>0&&L.circleHit(b.x,b.y,b.r,pos.x,pos.y,t.r)){
+            var amount=b.dmg||player.damage,actual=L.damageTurret(boss,t,amount);
+            runStats[b.source||'weapon']+=actual;runStats.synergyDamage+=actual*(b.bonus||0)/amount;b.dead=true;
+            if(t.hp===0){burst(pos.x,pos.y,R.C.orange,18,140);A.play('boom');}
+          }
+        });
+      }
       if (!b.dead && boss && !boss.dead && L.circleHit(b.x, b.y, b.r, boss.x, boss.y, boss.r)) {
         /* 移动堡垒重甲:受到伤害 ×0.6 */
-        boss.hp -= (b.dmg || player.damage) * L.bossDamageScale(boss);
+        dealDamage(boss, (b.dmg || player.damage) * L.bossDamageScale(boss), b.source || "weapon", (b.bonus || 0)*L.bossDamageScale(boss));
         b.dead = true; boss.flash = 0.08;
         if (boss.hp <= 0) { boss.dead = true; killEnemy(boss); boss = null; bossKilled = true; }
       }
@@ -816,7 +882,7 @@
     /* 敌弹命中玩家 */
     ebullets.forEach(function (b) {
       if (!b.dead && L.circleHit(b.x, b.y, b.r, player.x, player.y, player.r)) {
-        b.dead = true; hurtPlayer();
+        b.dead = true; hurtPlayer("敌方弹幕");
       }
     });
 
@@ -827,12 +893,12 @@
     /* 敌机撞击玩家 */
     for (var k = enemies.length - 1; k >= 0; k--) {
       var ee = enemies[k];
-      if (!ee.dead && L.circleHit(ee.x, ee.y, ee.r, player.x, player.y, player.r)) {
-        ee.dead = true; burst(ee.x, ee.y, R.C.magenta, 10, 160); A.play('boom'); hurtPlayer();
+      if (!ee.dead && !ee.optional && L.circleHit(ee.x, ee.y, ee.r, player.x, player.y, player.r)) {
+        ee.dead = true; burst(ee.x, ee.y, R.C.magenta, 10, 160); A.play('boom'); hurtPlayer('敌机碰撞');
       }
     }
     if (boss && !boss.dead && L.circleHit(boss.x, boss.y, boss.r, player.x, player.y, player.r)) {
-      hurtPlayer();
+      hurtPlayer("Boss 碰撞");
     }
 
     /* 道具 */
@@ -868,6 +934,7 @@
     particles.forEach(function (p) { E.updateParticle(p, dt); });
     particles.releaseAll(function (p) { return !p.dead; });
 
+    if (STATE !== "playing") return;
     /* 波次推进 */
     /* 波次推进:Boss 已死则立即推进(无视残留的召唤杂兵) */
     if ((STATE === 'playing' && bossKilled) || parentWaveClear()) {
@@ -885,8 +952,9 @@
   function parentWaveClear() {
     if (STATE !== 'playing') return false;
     if (spawnSeq.length) return false;
-    if (enemies.length) return false;
+    if (enemies.some(function(e){return !e.dead&&!e.optional;})) return false;
     if (boss) return false;
+    if (currentBossHp()>0 && !bossKilled) return false;
     return true;
   }
 
@@ -941,14 +1009,21 @@
         ctx.fillStyle = R.C.magenta;
         ctx.fillRect(e.x - 16, e.y - e.r - 14, 32 * ratio, 4);
       }
-      R.drawC(ctx, R.sprite(e.type), e.x, e.y);
+      if(e.protectedBy&&E.shieldScale(e,now)<1){
+        ctx.save();ctx.strokeStyle=R.C.cyan;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(e.protectedBy.x,e.protectedBy.y);ctx.stroke();ctx.beginPath();ctx.arc(e.x,e.y,e.r+5,0,Math.PI*2);ctx.stroke();ctx.restore();
+      }
+      R.drawSupportEffect(ctx,e,now);
+      if(e.type==='transport'&&e.warning>0){
+        ctx.save();ctx.fillStyle=R.C.yellow;ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText('补给运输机 '+(e.side<0?'→':'←'),e.side<0?70:W-70,e.y-26);ctx.restore();
+      } else R.drawEnemy(ctx,e,now);
       if (e.type === 'phantom' && e.ghosted) ctx.globalAlpha = 1;
     }
 
     /* Boss */
     if (boss) {
-      if (!(boss.flash > 0 && Math.floor(boss.flash * 20) % 2 === 0))
-        R.drawC(ctx, R.sprite('boss-' + boss.kind) || R.sprite('boss'), boss.x, boss.y);
+      if (!(boss.flash > 0 && Math.floor(boss.flash * 20) % 2 === 0)) {
+        R.drawBoss(ctx,boss);
+      }
       if (boss.pending) {
         ctx.save();
         ctx.strokeStyle = R.C.red;
@@ -967,7 +1042,7 @@
     }
 
     /* 子弹 */
-    pbullets.forEach(function (b) { if (!b.dead) R.drawC(ctx, R.sprite('pb'), b.x, b.y); });
+    pbullets.forEach(function (b) { if (!b.dead) R.drawPlayerShot(ctx,b); });
     ebullets.forEach(function (b) {
       if (b.dead) return;
       var img = R.sprite('eb');
@@ -992,7 +1067,7 @@
     /* 玩家 */
     if (player) {
       if (!(player.invUntil > now && Math.floor(now / 90) % 2 === 0)) {
-        R.drawC(ctx, R.sprite('player'), player.x, player.y);
+        R.drawPlayer(ctx,player,now/1000);
       }
     }
 
@@ -1008,6 +1083,7 @@
     layoutBattlefield();
     A.updateMusic(STATE === 'playing' && boss ? boss.kind : null, boss ? boss.phase : 1);
     draw();
+    if(STATE==='start'&&DFJ.Hangar)DFJ.Hangar.draw(now/1000);
     requestAnimationFrame(loop);
   }
 
@@ -1059,6 +1135,7 @@
   bindInput();
   syncDiffBtns();
   R.init();
+  if(DFJ.Hangar)DFJ.Hangar.init();
   setPanel('panel-start');
   updateHUD();
   requestAnimationFrame(function (ts) { lastT = ts; loop(ts); });

@@ -51,6 +51,6 @@ if ($LASTEXITCODE -ne 0) { throw "publish failed" }
 # ---- artifact ----
 $dist = Join-Path $winDir 'dist'
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
-$name = "neon-strike-$version-win64.exe"
+$name = "neon-strike-v$version-win64.exe"
 Copy-Item (Join-Path $outDir 'NeonStrike.exe') (Join-Path $dist $name) -Force
 Write-Host "== BUILD OK: $dist\$name" -ForegroundColor Green

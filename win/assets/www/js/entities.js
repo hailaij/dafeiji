@@ -5,12 +5,13 @@
   var U = DFJ.U;
   var E = (DFJ.Entities = {});
 
-  E.createPlayer = function (w, h) {
+  E.createPlayer = function (w, h, shipId, weaponId) {
+    var ship=DFJ.Logic.shipPreset(shipId);
     return {
-      x: w / 2, y: h - 90, r: 12,
-      speed: 430,
-      hp: 3, lives: 3, shield: 0, weapon: 1,
-      hpMax: 3, fireRate: 1, damage: 1, spread: 0, speedMul: 1, scoreMul: 1,
+      x: w / 2, y: h - 90, r: ship.r,
+      weaponId:DFJ.Logic.weaponPreset(weaponId).id, ship:ship.id, speed: 430*ship.speed,
+      hp: ship.hp, lives: 3, shield: ship.shield, weapon: 1,
+      hpMax: ship.hp, fireRate: 1, damage: 1, spread: 0, speedMul: 1, scoreMul: 1,
       crit: 0, critDmg: 0.5, magnet: 0, reflect: 0, vamp: 0, emp: 0,
       rageUntil: 0, frostUntil: 0,
       invUntil: 0, fireCd: 0,
@@ -125,7 +126,27 @@
       e.phaseT = 0;
       e.score = 800;
     }
+    if (type === 'guardian' || type === 'transport') {
+      e.r = type === 'guardian' ? 15 : 19;
+      e.hp = (type === 'guardian' ? 4 : 5) * diff.hpMul;
+      e.x = w/2; e.y = -36; e.vy = 65 * diff.speedMul; e.score = 450;
+      if (type === 'transport') { e.optional = true; e.warning = 1.2; e.side = Math.random()<0.5?-1:1; e.x=e.side<0?-24:w+24; e.vx=-e.side*Math.max(65,w/6); }
+    }
     return e;
+  };
+
+  E.updateShields = function(enemies, now) {
+    enemies.forEach(function(e){e.protectedBy=null;});
+    enemies.forEach(function(g){
+      if(g.type!=='guardian'||g.dead||g.y<0||g.__stunUntil>now)return;
+      enemies.filter(function(e){return e!==g&&!e.dead&&e.y>=0&&!e.protectedBy&&e.type!=='guardian'&&!e.optional&&Math.hypot(e.x-g.x,e.y-g.y)<=140;})
+        .sort(function(a,b){return Math.hypot(a.x-g.x,a.y-g.y)-Math.hypot(b.x-g.x,b.y-g.y);}).slice(0,2)
+        .forEach(function(e){e.protectedBy=g;});
+    });
+  };
+  E.shieldScale = function(e,now) {
+    var g=e.protectedBy;
+    return g&&!g.dead&&!(g.__stunUntil>now)&&Math.hypot(e.x-g.x,e.y-g.y)<=140?0.65:1;
   };
 
   /* Boss 工厂:v1.2 起按 Logic.BOSS_ROSTER 生成 11 种 Boss;kind 缺省 'boss'
@@ -136,6 +157,7 @@
     var i;
     for (i = 0; i < roster.length; i++) { if (roster[i].id === cfg.kind) { entry = roster[i]; break; } }
     return {
+      turrets: entry.id === 'fortress' ? [-1,1].map(function(side){var hp=Math.max(6,Math.round(cfg.bossHp*entry.hp*.14));return {side:side,hp:hp,maxHp:hp,r:14};}) : null,
       type: 'boss', difficulty: cfg.difficulty || 'normal', kind: entry.id, name: entry.name, t: 0, dead: false, flash: 0,
       x: w / 2, y: -110, targetY: 180,
       r: 44, hp: Math.round(cfg.bossHp * entry.hp), maxHp: Math.round(cfg.bossHp * entry.hp),
@@ -179,6 +201,14 @@
   E.updateEnemy = function (e, dt, w, h, px, py, hudBottom) {
     e.t += dt;
     if (e.flash > 0) e.flash -= dt;
+    if(e.type==='transport') {
+      e.y=Math.min(h-90, (hudBottom||0)+65);
+      if(e.warning>0){e.warning=Math.max(0,e.warning-dt);return;}
+      e.x+=e.vx*dt;
+      if(e.x < -40 || e.x > w+40)e.dead=true;
+      return;
+    }
+    if(e.type==='guardian') {e.y+=e.vy*dt;if(e.y>h+50)e.dead=true;return;}
     var target = E.trackTarget(e, dt, w, h, px, py);
     var top = (hudBottom || 0) + e.r + 12;
     var hover = Math.max(top, Math.min(h * 0.28, h - 140));
@@ -267,7 +297,7 @@
       return;
     }
     b.strafeT += dt;
-    var range = (w - 2 * b.r - 40) / 2;
+    var range = (w - 2 * (b.turrets ? 72 : b.r) - 40) / 2;
     if (range < 0) range = 0;
     b.x = w / 2 + Math.sin(b.strafeT * (b.phase === 1 ? 0.9 : 1.5) * (b.speedMul || 1)) * range;
   };

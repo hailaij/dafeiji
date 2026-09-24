@@ -72,6 +72,6 @@ if (-not (Test-Path -LiteralPath $apk)) { throw 'APK not produced' }
 $gradleConfig = Get-Content (Join-Path $androidDir 'app\build.gradle.kts') -Raw
 $versionMatch = [regex]::Match($gradleConfig, 'versionName\s*=\s*"([^"]+)"')
 if (-not $versionMatch.Success) { throw 'Cannot read Android versionName' }
-$artifactName = 'neon-strike-' + $versionMatch.Groups[1].Value + '.apk'
+$artifactName = 'neon-strike-v' + $versionMatch.Groups[1].Value + '.apk'
 Copy-Item -LiteralPath $apk -Destination (Join-Path $dist $artifactName) -Force
 Write-Host "== BUILD OK: dist\$artifactName" -ForegroundColor Green
