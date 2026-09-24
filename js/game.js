@@ -721,9 +721,13 @@
     } else if (pointer.active) {
       var dx = pointer.x - player.x, dy = pointer.y - player.y;
       var dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > 0.5) {
-        /* 与键盘共用机体速度上限，接近目标时指数平滑。 */
-        var f = Math.min(1 - Math.exp(-20 * dt), speed * dt / dist);
+      if (dist > 0) {
+        /* Pointer input follows intent directly: ~28–42 ms to cover 95% of a jump.
+         * Hull/rogue mobility changes response, not a long-distance speed cap.
+         * Exponential response stays consistent across refresh rates. */
+        var response = 90 * L.shipPreset(player.ship).speed * player.speedMul;
+        var f = 1 - Math.exp(-response * dt);
+        if (dist * (1 - f) < 0.5) f = 1;
         player.x += dx * f;
         player.y += dy * f;
       }

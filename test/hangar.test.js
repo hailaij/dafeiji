@@ -17,5 +17,3 @@ for(const fps of [30,60])for(const weapon of L.WEAPONS){
  const expected=10/.16*(weapon.id==='fan'?1.2:1);assert(Math.abs(damage-expected)<=weapon.damage*1.21,`${weapon.id} ${fps}fps damage ${damage}`);
 }
 console.log('PASS: nine independent loadouts, all tiers/spread, rogue retention, hull stats and 30/60fps firing budgets');
-
-for(const ship of L.SHIPS){const r=make(1);r.api.start('endless','normal',false,ship.id,'pulse');const c=r.api.combat();c.player.x=100;c.player.y=400;c.fireStep(.01,350,400);assert(Math.abs(c.player.x-100-430*ship.speed*.01)<1e-8,'Touch movement must respect hull speed');}

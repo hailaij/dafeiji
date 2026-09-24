@@ -9,9 +9,9 @@
     <AssemblyName>NeonStrike</AssemblyName>
     <RootNamespace>NeonStrike</RootNamespace>
     <ApplicationIcon>icon.ico</ApplicationIcon>
-    <Version>1.5.0</Version>
-    <AssemblyVersion>1.5.0.0</AssemblyVersion>
-    <FileVersion>1.5.0.0</FileVersion>
+    <Version>1.5.1</Version>
+    <AssemblyVersion>1.5.1.0</AssemblyVersion>
+    <FileVersion>1.5.1.0</FileVersion>
     <Product>NEON STRIKE · 霓虹突袭</Product>
     <Description>NEON STRIKE · 霓虹突袭 赛博朋克风格纵版射击游戏（Windows 桌面版）</Description>
     <PublishSingleFile>true</PublishSingleFile>

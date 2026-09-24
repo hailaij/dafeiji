@@ -5,7 +5,7 @@
   'use strict';
   var Logic = {};
 
-  Logic.VERSION = '1.5.0';
+  Logic.VERSION = '1.5.1';
   // Hulls never multiply weapon damage or firing interval.
   Logic.SHIPS = [
     {id:'falcon',name:'游隼',speed:1,hp:3,r:12,shield:0,color:'#70e7ff',desc:'均衡 · 生命 3 · 标准移速 · 判定半径 12'},

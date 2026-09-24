@@ -2,9 +2,11 @@
 
 赛博朋克风格网页打飞机游戏。零依赖、零构建,双击即可玩;已内置 Android 打包工程与 Windows 桌面版(WebView2 壳),可一键产出安装包。
 
-**当前版本:v1.5.0**
+**当前版本:v1.5.1**
 
-## v1.5.0 新增玩法
+## 当前功能
+
+- v1.5.1 改善鼠标与触屏跟随，快速拖动不再受固定移速上限限制。
 
 - 新主界面与机库：游隼、壁垒、灵翼与脉冲、重弹、扇形自由搭配，实时试射九种组合，选择模式和难度后点击「开始出击」。[机型参数与验证](docs/design/hangar.md)。
 
@@ -28,7 +30,7 @@
 
 ### Android APK
 
-已打包产物:**`android/dist/neon-strike-v1.5.0.apk`**（Android 7.0+，离线运行）。
+已打包产物:**`android/dist/neon-strike-v1.5.1.apk`**（Android 7.0+，离线运行）。
 
 构建 APK 后传到安卓手机,开启「允许安装未知来源」后直接安装即可。游戏完全离线运行,无网络权限。
 
@@ -46,7 +48,7 @@ cd android
 
 ### Windows 桌面版
 
-已打包产物:**`win/dist/neon-strike-v1.5.0-win64.exe`**(≈69 MB,Win10/11 x64)
+已打包产物:**`win/dist/neon-strike-v1.5.1-win64.exe`**(≈69 MB,Win10/11 x64)
 
 单文件自包含,双击即玩,无需安装 .NET(仅需系统自带 WebView2 运行时);游戏资产内嵌 exe,完全离线运行。
 
@@ -181,13 +183,13 @@ dafeiji/
 │   │   ├── assets/www/              # 离线游戏资产(与根目录同步)
 │   │   └── res/                     # 图标/主题/字符串
 │   └── dist/                        # APK 产物
-│       └── neon-strike-v1.5.0.apk    # Android 安装包
+│       └── neon-strike-v1.5.1.apk    # Android 安装包
 ├── win/                             # Windows 桌面版(WebView2 壳)
 │   ├── build-local.ps1              # 一键构建脚本
 │   ├── NeonStrike.csproj            # .NET 8 WinForms 工程
 │   ├── assets/www/                  # 离线游戏资产(与根目录同步)
 │   └── dist/                        # exe 产物
-│       └── neon-strike-v1.5.0-win64.exe
+│       └── neon-strike-v1.5.1-win64.exe
 ├── docs/                            # 项目文档（入口 docs/README.md）
 │   ├── design/                     # 游戏与 Boss 设计
 │   └── reports/                    # 平衡审计、玩法与敌人扩展报告
@@ -207,6 +209,17 @@ dafeiji/
 若 Git 报 `Recv failure: Connection was reset` 或直连 GitHub 超时，而本机代理可正常访问，请先用 `git -c http.proxy=http://127.0.0.1:<实际端口> ls-remote origin refs/heads/main` 验证代理。确认成功后，可通过 `git config --local remote.origin.proxy http://127.0.0.1:<实际端口>` 仅为当前仓库保存设置。代理必须处于运行状态；恢复直连可执行 `git config --local --unset remote.origin.proxy`。不要关闭 TLS 证书校验。
 
 ## 更新日志
+
+## [1.5.1] - 2026-09-24
+### 修复
+- 修复鼠标与触屏拖动时主飞机追不上输入的问题：取消固定移速上限，改为快速指数跟随，末端直接对齐，避免长距离追赶与缓慢漂移
+### 优化
+- 保留机体与肉鸽机动强化的响应差异，键盘移速、手机手指偏移与双指 EMP 操作保持原有规则
+- 新增 30/60/120/144 Hz 快速移动、停止对齐、边界与强化测试，以及浏览器鼠标/触屏事件回归
+### 变更
+- Android versionCode 13，网页与 Windows 版本统一为 1.5.1，更新离线缓存
+- 收录 v1.5.0 实机冒烟测试报告；其结果不代表 v1.5.1 已完成实机复测
+- 旧版 810 条平衡模拟保留为历史数据，不能直接证明新跟随逻辑的平衡
 
 ## [1.5.0] - 2026-09-24
 ### 新增

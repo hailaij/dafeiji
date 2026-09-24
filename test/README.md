@@ -47,3 +47,5 @@ Remove-Item Env:BALANCE_REPORT_DIR
 自由搭配开局比较：`node test/hangar.audit.js`，写入 `test/reports/loadouts/opening.json`（486 条开局模拟）。
 
 自由搭配后段比较：`node test/loadout.reactive.js`，写入 `test/reports/loadouts/late-reactive.json`（324 条启发式避弹模拟）。
+
+指针手感回归：`node test/player.movement.test.js` 检查多刷新率追踪与边界，`node test/player.movement.ui.test.js` 检查浏览器真实鼠标事件与模拟触屏事件（需 Playwright）。
