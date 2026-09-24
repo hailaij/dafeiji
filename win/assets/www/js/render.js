@@ -196,7 +196,37 @@
     });
   };
 
+  // Cosmetic shield only: never changes hit radius or combat state.
+  R.drawPlayerShield = function(ctx,p,time) {
+    var layers=Math.min(3,Math.max(0,Math.floor(p.shield||0)));
+    if(!layers)return;
+    var ship=DFJ.Logic.shipPreset(p.ship),t=Number.isFinite(time)?time:0;
+    ctx.save();ctx.translate(p.x,p.y);ctx.strokeStyle=ship.color;ctx.fillStyle=ship.color;
+    ctx.lineWidth=1.35;ctx.lineJoin='round';ctx.lineCap='round';
+    ctx.globalAlpha=.62+.08*Math.sin(t*3);
+    if(ship.id==='bulwark'){
+      var corners=[[0,-31],[27,-17],[29,15],[0,29],[-29,15],[-27,-17]];
+      poly(ctx,corners);ctx.stroke();ctx.globalAlpha=.05;ctx.fill();ctx.globalAlpha=.85;
+      // Solid shoulder plates echo the hull's armour, not an extra hitbox.
+      [-1,1].forEach(function(a){ctx.beginPath();ctx.moveTo(a*10,-26);ctx.lineTo(a*27,-17);ctx.lineTo(a*28,-5);ctx.lineWidth=3;ctx.stroke();});
+    }else if(ship.id==='wisp'){
+      [-1,1].forEach(function(a){
+        ctx.beginPath();ctx.moveTo(a*5,-30);ctx.quadraticCurveTo(a*34,-16,a*31,17);ctx.lineTo(a*17,25);
+        ctx.quadraticCurveTo(a*25,2,a*5,-30);ctx.stroke();ctx.globalAlpha=.055;ctx.fill();ctx.globalAlpha=.72;
+        ctx.beginPath();ctx.moveTo(a*22,-16);ctx.quadraticCurveTo(a*35,3,a*23,21);ctx.stroke();
+      });
+    }else{
+      for(var i=0;i<3;i++){var angle=-Math.PI/2+i*Math.PI*2/3;ctx.beginPath();ctx.arc(0,0,29,angle+.12,angle+Math.PI*2/3-.12);ctx.stroke();}
+      ctx.globalAlpha=.22;ctx.beginPath();ctx.arc(0,0,25,-2.7,-.45);ctx.stroke();
+      ctx.globalAlpha=.8;ctx.beginPath();ctx.arc(0,0,29,t*.7,t*.7+.35);ctx.stroke();
+    }
+    ctx.lineWidth=2;ctx.globalAlpha=.9;
+    for(var j=0;j<3;j++){ctx.globalAlpha=j<layers?.95:.16;ctx.beginPath();ctx.moveTo(-8+j*6,34);ctx.lineTo(-4+j*6,34);ctx.stroke();}
+    ctx.restore();
+  };
+
   R.drawPlayer = function(ctx,p,time) {
+    R.drawPlayerShield(ctx,p,time);
     var ship=window.DFJ.Logic.shipPreset(p.ship);ctx.save();ctx.fillStyle=ship.color;ctx.globalAlpha=.55;
     var tail=7+Math.sin(time*14)*2;[-1,1].forEach(function(a){ctx.fillRect(p.x+a*6-1,p.y+9,2,tail);});ctx.restore();
     R.drawC(ctx,S['player-'+ship.id]||S.player,p.x,p.y);

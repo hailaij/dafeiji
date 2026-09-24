@@ -2,9 +2,11 @@
 
 赛博朋克风格网页打飞机游戏。零依赖、零构建,双击即可玩;已内置 Android 打包工程与 Windows 桌面版(WebView2 壳),可一键产出安装包。
 
-**当前版本:v1.5.1**
+**当前版本:v1.6.0**
 
 ## 当前功能
+
+- v1.6.0 新增三机型专属护盾，并修复音频挂起后 Boss 配乐无法恢复的问题。
 
 - v1.5.1 改善鼠标与触屏跟随，快速拖动不再受固定移速上限限制。
 
@@ -30,7 +32,7 @@
 
 ### Android APK
 
-已打包产物:**`android/dist/neon-strike-v1.5.1.apk`**（Android 7.0+，离线运行）。
+已打包产物:**`android/dist/neon-strike-v1.6.0.apk`**（Android 7.0+，离线运行）。
 
 构建 APK 后传到安卓手机,开启「允许安装未知来源」后直接安装即可。游戏完全离线运行,无网络权限。
 
@@ -48,7 +50,7 @@ cd android
 
 ### Windows 桌面版
 
-已打包产物:**`win/dist/neon-strike-v1.5.1-win64.exe`**(≈69 MB,Win10/11 x64)
+已打包产物:**`win/dist/neon-strike-v1.6.0-win64.exe`**(≈69 MB,Win10/11 x64)
 
 单文件自包含,双击即玩,无需安装 .NET(仅需系统自带 WebView2 运行时);游戏资产内嵌 exe,完全离线运行。
 
@@ -183,13 +185,13 @@ dafeiji/
 │   │   ├── assets/www/              # 离线游戏资产(与根目录同步)
 │   │   └── res/                     # 图标/主题/字符串
 │   └── dist/                        # APK 产物
-│       └── neon-strike-v1.5.1.apk    # Android 安装包
+│       └── neon-strike-v1.6.0.apk    # Android 安装包
 ├── win/                             # Windows 桌面版(WebView2 壳)
 │   ├── build-local.ps1              # 一键构建脚本
 │   ├── NeonStrike.csproj            # .NET 8 WinForms 工程
 │   ├── assets/www/                  # 离线游戏资产(与根目录同步)
 │   └── dist/                        # exe 产物
-│       └── neon-strike-v1.5.1-win64.exe
+│       └── neon-strike-v1.6.0-win64.exe
 ├── docs/                            # 项目文档（入口 docs/README.md）
 │   ├── design/                     # 游戏与 Boss 设计
 │   └── reports/                    # 平衡审计、玩法与敌人扩展报告
@@ -209,6 +211,19 @@ dafeiji/
 若 Git 报 `Recv failure: Connection was reset` 或直连 GitHub 超时，而本机代理可正常访问，请先用 `git -c http.proxy=http://127.0.0.1:<实际端口> ls-remote origin refs/heads/main` 验证代理。确认成功后，可通过 `git config --local remote.origin.proxy http://127.0.0.1:<实际端口>` 仅为当前仓库保存设置。代理必须处于运行状态；恢复直连可执行 `git config --local --unset remote.origin.proxy`。不要关闭 TLS 证书校验。
 
 ## 更新日志
+
+## [1.6.0] - 2026-09-24
+### 新增
+- 三种主机专属护盾：游隼分段圆环、壁垒六边形装甲、灵翼双翼弧面；仅 SHIELD 大于零时显示，刻度表示剩余层数，不改变碰撞范围
+- 壁垒机库预览显示初始护盾；新增三机型 0–3 层护盾图鉴
+### 修复
+- 修复音频被浏览器或系统挂起后，继续游戏未恢复 Boss 配乐的问题；键盘及指针手势重新解锁音频
+- 处理音频恢复 Promise 拒绝，记录音乐调度异常，支持关闭上下文后的重建
+### 验证
+- 检测全部 11 首 Boss 配乐的真实 WebAudio 采样输出，验证暂停恢复、指针解锁和静音切换
+- 验证护盾样式、层数、空盾隐藏、绘制状态隔离及战斗回归；尚未进行本版实机听音与安装复测
+### 变更
+- Android versionCode 14，网页与 Windows 版本统一为 1.6.0，更新离线缓存及两端资源
 
 ## [1.5.1] - 2026-09-24
 ### 修复

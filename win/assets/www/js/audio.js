@@ -6,9 +6,23 @@
   var DFJ = (window.DFJ = window.DFJ || {});
   var ctx = null, master = null, noiseBuf = null, muted = false;
   var VOL = 0.35;
+  var lastError = null, resuming = false;
+  function resumeContext() {
+    if (!ctx || (ctx.state !== 'suspended' && ctx.state !== 'interrupted') || resuming) return;
+    try {
+      var result = ctx.resume();
+      if (result && result.then) {
+        resuming = true;
+        result.then(function () { resuming = false; lastError = null; }, function (e) {
+          resuming = false; lastError = String(e.message || e);
+        });
+      }
+    } catch (e) { resuming = false; lastError = String(e.message || e); }
+  }
 
   function init() {
-    if (ctx) { if (ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} } return true; }
+    if (ctx && ctx.state === 'closed') { stopMusic(); ctx = null; master = null; noiseBuf = null; resuming = false; }
+    if (ctx) { resumeContext(); return true; }
     try {
       var AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return false;
@@ -20,8 +34,9 @@
       noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
       var d = noiseBuf.getChannelData(0);
       for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      resumeContext();
       return true;
-    } catch (e) { ctx = null; return false; }
+    } catch (e) { lastError = String(e.message || e); ctx = null; return false; }
   }
 
   function tone(type, f0, f1, dur, vol, delay) {
@@ -131,7 +146,11 @@
         if (phase === 2 && step % 4 === 3) note('sine', m.root + 36 + m.motif[step % 8], musicNext, stepTime, 0.035);
         musicNext += stepTime; musicStep++;
       }
-    } catch (e) { stopMusic(); }
+    } catch (e) {
+      var message = String(e.message || e);
+      if (lastError !== message && window.console) window.console.warn('Boss music: ' + message);
+      lastError = message; stopMusic();
+    }
   }
   function LIndex(kind) {
     return Math.max(0, DFJ.Logic.BOSS_ROSTER.findIndex(function (b) { return b.id === kind; }));
@@ -139,6 +158,7 @@
 
   DFJ.Audio = {
     init: init,
+    status: function () { return {contextState: ctx ? ctx.state : 'uninitialized', musicKind: musicKind, muted: muted, lastError: lastError}; },
     updateMusic: updateMusic,
     stopMusic: stopMusic,
     play: function (name) { if (SFX[name]) SFX[name](); },

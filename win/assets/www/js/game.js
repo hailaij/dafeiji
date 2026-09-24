@@ -629,13 +629,16 @@
   }
   function resume() {
     if (STATE !== 'paused') return;
+    A.init(); // Resume audio inside the user's gesture after browser/OS suspension.
     STATE = 'playing';
     setPanel('none');
   }
 
   /* ---- 输入 ---- */
   function bindInput() {
+    window.addEventListener('pointerdown', function () { A.init(); }, true);
     window.addEventListener('keydown', function (e) {
+      A.init();
       var k = e.key.toLowerCase();
       if (k === 'p' || k === 'escape') {
         if (STATE === 'playing') pause(); else if (STATE === 'paused') resume();

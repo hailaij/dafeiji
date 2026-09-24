@@ -49,3 +49,7 @@ Remove-Item Env:BALANCE_REPORT_DIR
 自由搭配后段比较：`node test/loadout.reactive.js`，写入 `test/reports/loadouts/late-reactive.json`（324 条启发式避弹模拟）。
 
 指针手感回归：`node test/player.movement.test.js` 检查多刷新率追踪与边界，`node test/player.movement.ui.test.js` 检查浏览器真实鼠标事件与模拟触屏事件（需 Playwright）。
+
+Boss 音频回归：`node test/audio.ui.test.js` 使用真实 WebAudio 检测 11 首配乐采样输出，并验证音频挂起后继续/指针手势恢复及静音切换（需 Playwright）。
+
+主机护盾：`test/player-shield-lab.html` 对照三机型 0–3 层效果；`node test/player.shield.ui.test.js` 检查样式、层数、空盾及绘制状态隔离。
