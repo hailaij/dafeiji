@@ -1,0 +1,13 @@
+{
+  "runs": 654,
+  "simulatedHours": 154.83925000000013,
+  "maxWave": 102,
+  "hashes": {
+    "js/core.js": "d9c5e9369dc847dcc0812616b78c31168f502713a8471bb9c0b00822caa60efb",
+    "js/logic.js": "58fae5940678cd565fe4d90e26f08de88924ea77d64649f85a24a85da71e84a6",
+    "js/bosses.js": "e153893c854db7e6f89facc0805e5c428665130a09b054045f057a3c025bf644",
+    "js/entities.js": "b7f1bc0376dae1dbdfdcc44d3b520f12efa4865d2647db24d2a773e9e99a2f40",
+    "js/input.js": "658f953d33f1b44f3f4ad8bd3a786f5c3865c9ff1fd385873fe00ac28f611ba0",
+    "js/game.js": "95ae29722b4b7fecea419f99b00a2ac9b9480fe4c79e5d610b010f6e7c6fbb64"
+  }
+}

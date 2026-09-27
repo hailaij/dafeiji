@@ -13,7 +13,10 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
   /* ---- 启动 ---- */`);
  await page.route('**/js/game.js',r=>r.fulfill({contentType:'text/javascript',body:code}));
  await page.goto(pathToFileURL(path.resolve('index.html')).href);await page.evaluate(()=>window.__enemyFixture());await page.waitForTimeout(250);
- assert((await page.locator('#boss-phase').innerText()).includes('炮台 2/2'));
+ const phase=page.locator(width<=640||height<=480?'#boss-phase-short':'#boss-phase');
+ await phase.waitFor({state:'visible'});
+ await page.waitForFunction(id=>document.querySelector(id).textContent.includes('炮台 2/2'),width<=640||height<=480?'#boss-phase-short':'#boss-phase');
+ assert((await phase.innerText()).includes('炮台 2/2'));
  assert(await page.evaluate(()=>!!window.DFJ.Render.sprite('guardian')&&!!window.DFJ.Render.sprite('transport')));
  await page.screenshot({path:'test/artifacts/enemies-'+width+'.png'});await page.waitForTimeout(1300);
  assert.deepStrictEqual(errors,[]);await page.close();console.log('PASS new enemies/fortress rendering '+width+'x'+height);

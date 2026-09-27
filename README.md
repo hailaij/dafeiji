@@ -2,9 +2,17 @@
 
 赛博朋克风格网页打飞机游戏。零依赖、零构建,双击即可玩;已内置 Android 打包工程与 Windows 桌面版(WebView2 壳),可一键产出安装包。
 
-**当前版本:v1.6.0**
+**当前版本:v1.7.0**
 
 ## 当前功能
+
+- 手机 HUD 压缩：普通战斗顶部约 53px、竖屏 Boss 战约 95px，保留关键战斗状态；详情移至暂停页，横屏恢复 Boss 技能提示。[十种尺寸验证](docs/reports/mobile-hud.md)。
+
+- v1.7.0 EMP 优化：保持 10 秒基础冷却，增加 0.25 秒释放保护、清弹数量/范围反馈、Boss 干扰提示与末秒小数；暂停和选卡不再恢复冷却。[说明与 282 局复测](docs/reports/emp-improvements.md)。
+
+- v1.7.0 新增：肉鸽六条武器进化、三种路线选择、180 秒固定装备挑战、五场 Boss 连战、受击方向与破盾反馈、音乐/音效独立音量和更完整的结算记录。规则与测试边界见 [玩法扩展说明](docs/design/expedition.md)。
+
+- [长期平衡修复与复测](docs/reports/longrun-balance-fixes.md)：已修复 Boss 入场秒杀、限制肉鸽重复强化、重做挑战节奏并改善幽影窗口；重跑 654 局、累计 156.42 小时模拟。[修复前报告](docs/reports/longrun-balance.md)保留供对照，模拟不等同真人胜率。
 
 - v1.6.0 新增三机型专属护盾，并修复音频挂起后 Boss 配乐无法恢复的问题。
 
@@ -32,7 +40,7 @@
 
 ### Android APK
 
-已打包产物:**`android/dist/neon-strike-v1.6.0.apk`**（Android 7.0+，离线运行）。
+已打包产物:**`android/dist/neon-strike-v1.7.0.apk`**（Android 7.0+，离线运行）。
 
 构建 APK 后传到安卓手机,开启「允许安装未知来源」后直接安装即可。游戏完全离线运行,无网络权限。
 
@@ -50,7 +58,7 @@ cd android
 
 ### Windows 桌面版
 
-已打包产物:**`win/dist/neon-strike-v1.6.0-win64.exe`**(≈69 MB,Win10/11 x64)
+已打包产物:**`win/dist/neon-strike-v1.7.0-win64.exe`**(≈69 MB,Win10/11 x64)
 
 单文件自包含,双击即玩,无需安装 .NET(仅需系统自带 WebView2 运行时);游戏资产内嵌 exe,完全离线运行。
 
@@ -185,13 +193,13 @@ dafeiji/
 │   │   ├── assets/www/              # 离线游戏资产(与根目录同步)
 │   │   └── res/                     # 图标/主题/字符串
 │   └── dist/                        # APK 产物
-│       └── neon-strike-v1.6.0.apk    # Android 安装包
+│       └── neon-strike-v1.7.0.apk    # Android 安装包
 ├── win/                             # Windows 桌面版(WebView2 壳)
 │   ├── build-local.ps1              # 一键构建脚本
 │   ├── NeonStrike.csproj            # .NET 8 WinForms 工程
 │   ├── assets/www/                  # 离线游戏资产(与根目录同步)
 │   └── dist/                        # exe 产物
-│       └── neon-strike-v1.6.0-win64.exe
+│       └── neon-strike-v1.7.0-win64.exe
 ├── docs/                            # 项目文档（入口 docs/README.md）
 │   ├── design/                     # 游戏与 Boss 设计
 │   └── reports/                    # 平衡审计、玩法与敌人扩展报告
@@ -211,6 +219,26 @@ dafeiji/
 若 Git 报 `Recv failure: Connection was reset` 或直连 GitHub 超时，而本机代理可正常访问，请先用 `git -c http.proxy=http://127.0.0.1:<实际端口> ls-remote origin refs/heads/main` 验证代理。确认成功后，可通过 `git config --local remote.origin.proxy http://127.0.0.1:<实际端口>` 仅为当前仓库保存设置。代理必须处于运行状态；恢复直连可执行 `git config --local --unset remote.origin.proxy`。不要关闭 TLS 证书校验。
 
 ## 更新日志
+
+## [1.7.0] - 2026-09-27
+### 新增
+- 肉鸽六条武器进化及维修、补给、精英路线；新增 180 秒固定装备挑战与五场 Boss 连战
+- 音乐/音效独立音量、配乐试听，以及记录机型、武器、进化和路线的战后结算
+### 修复
+- 修复全部 11 种 Boss 二阶段提速瞬移，保留连续移动角度并平滑加速；幽影瞬移后正确衔接轨迹
+- 修复 EMP 冲击波被背景覆盖，以及暂停和选择面板期间仍恢复冷却的问题
+- 修复 Boss 入场期可被提前击杀，增加首轮攻击前的保护及明确提示
+### 优化
+- 肉鸽重复强化加入递减收益与上限，精英额外强化限前三次；调整连战火力与血量、挑战三段节奏和幽影停驻输出窗口
+- EMP 保持 10 秒基础冷却，增加 0.25 秒保护、清弹数量、范围边界、Boss 干扰提示、末秒小数和就绪反馈
+- 手机 HUD 普通战斗约 53px、竖屏 Boss 战约 95px、横屏 Boss 战约 81px；详情移至暂停页，保留关键战斗状态和双指操作
+- 增加受击方向、护盾闪光、破盾与 Boss 弱点开放反馈
+### 验证
+- 保留 654 局长期测试及 654 局平衡修复复测；EMP 改动后追加 282 局模拟，模拟结果不等同真人胜率
+- 覆盖十种 HUD 尺寸、横竖屏与安全区模拟、EMP 双指操作、Boss 移动、炮台和音频等回归；本版尚未完成真机安装与真人长局验收
+### 变更
+- Android versionCode 15，网页与 Windows 版本统一为 1.7.0，同步离线缓存与两端资源
+- 最高分按模式和难度分别记录；旧全局最高分保留但不混入新分类记录
 
 ## [1.6.0] - 2026-09-24
 ### 新增

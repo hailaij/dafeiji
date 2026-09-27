@@ -5,7 +5,7 @@
   'use strict';
   var Logic = {};
 
-  Logic.VERSION = '1.6.0';
+  Logic.VERSION = '1.7.0';
   // Hulls never multiply weapon damage or firing interval.
   Logic.SHIPS = [
     {id:'falcon',name:'游隼',speed:1,hp:3,r:12,shield:0,color:'#70e7ff',desc:'均衡 · 生命 3 · 标准移速 · 判定半径 12'},
@@ -31,6 +31,14 @@
     for(var j=0;j<(spread||0);j++){mount(-18-j*6,-.16-j*.08);mount(18+j*6,.16+j*.08);}
     return shots;
   };
+
+  Logic.EVOLUTIONS = {
+    pulse:[{id:'pierce',label:'贯穿脉冲',desc:'单发伤害 −15%，可贯穿两个不同目标',damage:.85,interval:1},{id:'chain',label:'连锁脉冲',desc:'单发伤害 −15%，首次命中向附近一架敌机传导 55% 伤害',damage:.85,interval:1}],
+    heavy:[{id:'charge',label:'蓄能重弹',desc:'单发伤害 +80%，射击间隔 +65%',damage:1.8,interval:1.65},{id:'blast',label:'爆破重弹',desc:'直接伤害 −20%，首次命中对附近最多三架敌机造成 35% 溅射',damage:.8,interval:1}],
+    fan:[{id:'focus',label:'聚焦扇形',desc:'扩散角缩小 65%，总伤害 −10%，远距离更集中',damage:.9,interval:1},{id:'wide',label:'广域扇形',desc:'扩散角增加 45%，总伤害 +5%，优先覆盖杂兵',damage:1.05,interval:1}]
+  };
+  Logic.evolution = function(p){return (Logic.EVOLUTIONS[p.weaponId]||[]).filter(function(e){return e.id===p.evolution;})[0]||{id:'none',label:'基础形态',damage:1,interval:1};};
+  Logic.modeLabel = function(mode){return {endless:'无限模式',campaign:'闯关模式',roguelike:'肉鸽模式',challenge:'限时挑战',bossrush:'Boss 连战'}[mode]||'无限模式';};
 
   Logic.COMBO_WINDOW_MS = 2000;
   Logic.WEAPON_MAX = 3;
@@ -162,25 +170,32 @@
 
   /* ---- 肉鸽模式(Roguelike) ---- */
   Logic.ROGUELIKE = 'roguelike';
+  Logic.challengeStage = function(seconds) { return Math.min(2,Math.floor(Math.max(0,seconds)/60)); };
+  Logic.challengeConfig = function(seconds,id) {
+    var stage=Logic.challengeStage(seconds), counts={grunt:6,sine:2,gunner:stage?3:1};
+    if(stage>=1){counts.weaver=2;counts.tank=1;}
+    if(stage>=2){counts.sniper=2;counts.bomber=2;}
+    return {counts:counts,boss:false,spawnInterval:[850,650,480][stage]*Logic.difficultyPreset(id).spawnIntervalMul};
+  };
   Logic.ROGUE_WAVES_PER_PERK = 3;   /* 每 3 波出现一次三选一升级 */
 
   /* 升级池:field 用于封顶判断(有 max 才封顶),apply 直接改写 state */
   Logic.ROGUELIKE_PERKS = [
     { id: 'power',  field: 'weapon', max: 3, label: '火力强化', desc: '主炮火力 +1（最高 3）',  apply: function (s) { s.weapon = Math.min(3, s.weapon + 1); } },
-    { id: 'rapid',  label: '急速射击', desc: '射速 +18%',                apply: function (s) { s.fireRate *= 1.18; } },
-    { id: 'damage', label: '穿甲弹',   desc: '子弹伤害 +1',                apply: function (s) { s.damage += 1; } },
-    { id: 'spread', label: '散射弹幕', desc: '额外 +1 外斜弹道',          apply: function (s) { s.spread += 1; } },
+    { id: 'rapid', field: 'fireRate', max: 2.5, label: '急速射击', desc: '射速递增，后续收益递减（最高 2.5 倍）',                apply: function (s) { s.fireRate = Math.min(2.5, s.fireRate + 0.18 / s.fireRate); } },
+    { id: 'damage', field: 'damage', max: 5, label: '穿甲弹', desc: '伤害 +1，达到 3 后每次 +0.5（最高 5）',                apply: function (s) { s.damage = Math.min(5, s.damage + (s.damage < 3 ? 1 : 0.5)); } },
+    { id: 'spread', field: 'spread', max: 2, label: '散射弹幕', desc: '增加一对外斜弹道（最多两对）',          apply: function (s) { s.spread = Math.min(2, s.spread + 1); } },
     { id: 'shield', field: 'shield', max: 3, label: '能量护盾', desc: '+1 护盾（最高 3）',      apply: function (s) { s.shield = Math.min(3, s.shield + 1); } },
-    { id: 'repair', label: '纳米修复', desc: 'HP 上限 +1 并回满',         apply: function (s) { s.hpMax += 1; s.hp = s.hpMax; } },
-    { id: 'speed',  label: '矢量推进', desc: '移速 +15%',                apply: function (s) { s.speedMul *= 1.15; } },
+    { id: 'repair', label: '纳米修复', desc: 'HP 上限 +1 并回满；上限 6 后改为回复 2 HP',         apply: function (s) { if(s.hpMax<6){s.hpMax+=1;s.hp=s.hpMax;}else{s.hp=Math.min(s.hpMax,s.hp+2);} } },
+    { id: 'speed', field: 'speedMul', max: 1.6, label: '矢量推进', desc: '移速 +15%（最高 1.6 倍）',                apply: function (s) { s.speedMul = Math.min(1.6,s.speedMul*1.15); } },
     { id: 'life',   field: 'lives', max: 5, label: '备用机体', desc: '生命 +1（最高 5）',      apply: function (s) { s.lives = Math.min(5, s.lives + 1); } },
-    { id: 'score',  label: '赏金芯片', desc: '得分 +25%',                apply: function (s) { s.scoreMul *= 1.25; } },
+    { id: 'score', field: 'scoreMul', max: 3, label: '赏金芯片', desc: '得分 +25%（最高 3 倍）',                apply: function (s) { s.scoreMul = Math.min(3,s.scoreMul*1.25); } },
     { id: 'crit',   field: 'crit', max: 3, label: '弱点分析', desc: '暴击率 +10%（最高 30%）',      apply: function (s) { s.crit = Math.min(3, s.crit + 1); } },
-    { id: 'critdmg', label: '致命一击', desc: '暴击伤害 +50%',              apply: function (s) { s.critDmg += 0.5; } },
+    { id: 'critdmg', field: 'critDmg', max: 1.5, label: '致命一击', desc: '暴击额外伤害 +50%（最高 +150%）',              apply: function (s) { s.critDmg = Math.min(1.5,s.critDmg+0.5); } },
     { id: 'magnet', field: 'magnet', max: 3, label: '磁力收集', desc: '道具吸附范围 +50%',        apply: function (s) { s.magnet = Math.min(3, s.magnet + 1); } },
     { id: 'reflect', field: 'reflect', max: 2, label: '回旋护板', desc: '受击时向四周散射弹片',    apply: function (s) { s.reflect = Math.min(2, s.reflect + 1); } },
-    { id: 'vamp',   label: '虹吸协议', desc: '击杀回血概率 +4%',        apply: function (s) { s.vamp += 0.04; } },
-    { id: 'emp',    label: '过载线圈', desc: 'EMP 等级 +0.4：提升范围、伤害与眩晕',    apply: function (s) { s.emp += 0.4; } }
+    { id: 'vamp', field: 'vamp', max: .12, label: '虹吸协议', desc: '回血概率前两次 +4%，之后 +2%（最高 12%）',        apply: function (s) { s.vamp = Math.min(.12,s.vamp+(s.vamp<.08?.04:.02)); } },
+    { id: 'emp', field: 'emp', max: 2, label: '过载线圈', desc: 'EMP 等级 +0.4：提升范围、伤害与眩晕（最高 2）',    apply: function (s) { s.emp = Math.min(2,s.emp+.4); } }
   ];
 
   Logic.SYNERGIES = [

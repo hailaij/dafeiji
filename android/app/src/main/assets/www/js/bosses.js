@@ -28,7 +28,10 @@
     return 1;
   };
   L.turretPosition = function(b,t) {return {x:b.x+t.side*58,y:b.y+18};};
+  L.bossProtected = function(b) {return b.type==='boss' && (b.y<b.targetY || !(b.attackIndex>0));};
+  L.phantomLanding = function(b,w) {return w/2+((b.attackIndex||0)%4===0?1:-1)*Math.min(130,w*.2);};
   L.damageTurret = function(b,t,amount) {
+    if(L.bossProtected(b))return 0;
     var actual=Math.max(0,Math.min(t.hp,amount));t.hp=Math.max(0,t.hp-amount);
     if(t.hp===0 && b.pending)b.pending.shots=b.pending.shots.filter(function(s){return s.turret!==b.turrets.indexOf(t);});
     return actual;
@@ -97,7 +100,7 @@
     }
     var balance = L.balancePreset(b.difficulty);
     return { shots: shots, warning: balance.bossWarning * ( b.kind === 'juggernaut' ? 1.15 : 0.75),
-      rest: balance.bossRest * (b.kind === 'storm' ? 0.45 : b.kind === 'juggernaut' ? 1.9 : 1.1) * (p2 ? 0.8 : 1),
+      rest: b.kind==='phantom'?2.4:balance.bossRest * (b.kind === 'storm' ? 0.45 : b.kind === 'juggernaut' ? 1.9 : 1.1) * (p2 ? 0.8 : 1),
       summon: b.kind === 'hive' && turn % (p2 ? 2 : 3) === 0 ? 'weaver' :
         b.kind === 'boss' && p2 && turn % 3 === 0 ? 'grunt' : null };
   };

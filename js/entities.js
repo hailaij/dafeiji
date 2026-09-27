@@ -161,7 +161,7 @@
       type: 'boss', difficulty: cfg.difficulty || 'normal', kind: entry.id, name: entry.name, t: 0, dead: false, flash: 0,
       x: w / 2, y: -110, targetY: 180,
       r: 44, hp: Math.round(cfg.bossHp * entry.hp), maxHp: Math.round(cfg.bossHp * entry.hp),
-      score: entry.score, fireCd: 1.6, phase: 1, strafeT: 0, summonT: 3,
+      score: entry.score, fireCd: 1.6, phase: 1, strafeT: 0, strafeAngle: 0, strafeSpeed: 0.9, summonT: 3,
       /* v1.2.3: 重甲 Boss 横移更慢,凸显体量差 */
       speedMul: entry.id === 'juggernaut' ? 0.65 : 1,
       fireKind: cfg.fireKind || 'fan', fireT: 0
@@ -288,6 +288,13 @@
     return false;
   };
 
+  // Rejoin the horizontal path after an intentional relocation, keeping direction.
+  E.reanchorBoss = function (b, w) {
+    var range = Math.max(0, (w - 2 * (b.turrets ? 72 : b.r) - 40) / 2);
+    var angle = Math.asin(range ? U.clamp((b.x - w / 2) / range, -1, 1) : 0);
+    b.strafeAngle = Math.cos(b.strafeAngle || 0) < 0 ? Math.PI - angle : angle;
+  };
+
   E.updateBoss = function (b, dt, w) {
     b.t += dt;
     if (b.flash > 0) b.flash -= dt;
@@ -297,9 +304,17 @@
       return;
     }
     b.strafeT += dt;
+    // Integrate angular velocity instead of rescaling all elapsed time on phase change.
+    // Exact exponential integration keeps the acceleration consistent across frame rates.
+    var targetSpeed = b.phase === 1 ? 0.9 : 1.5;
+    var speed = b.strafeSpeed === undefined ? 0.9 : b.strafeSpeed;
+    var blend = -Math.expm1(-dt / 0.25);
+    if (b.strafeAngle === undefined) E.reanchorBoss(b, w);
+    b.strafeAngle += (targetSpeed * dt + (speed - targetSpeed) * 0.25 * blend) * (b.speedMul || 1);
+    b.strafeSpeed = speed + (targetSpeed - speed) * blend;
     var range = (w - 2 * (b.turrets ? 72 : b.r) - 40) / 2;
     if (range < 0) range = 0;
-    b.x = w / 2 + Math.sin(b.strafeT * (b.phase === 1 ? 0.9 : 1.5) * (b.speedMul || 1)) * range;
+    b.x = w / 2 + Math.sin(b.strafeAngle) * range;
   };
 
   E.updatePowerup = function (p, dt, h) {

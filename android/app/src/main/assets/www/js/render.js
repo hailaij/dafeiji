@@ -203,7 +203,7 @@
     var ship=DFJ.Logic.shipPreset(p.ship),t=Number.isFinite(time)?time:0;
     ctx.save();ctx.translate(p.x,p.y);ctx.strokeStyle=ship.color;ctx.fillStyle=ship.color;
     ctx.lineWidth=1.35;ctx.lineJoin='round';ctx.lineCap='round';
-    ctx.globalAlpha=.62+.08*Math.sin(t*3);
+    ctx.globalAlpha=p.shieldHitUntil>t*1000?1:.62+.08*Math.sin(t*3);
     if(ship.id==='bulwark'){
       var corners=[[0,-31],[27,-17],[29,15],[0,29],[-29,15],[-27,-17]];
       poly(ctx,corners);ctx.stroke();ctx.globalAlpha=.05;ctx.fill();ctx.globalAlpha=.85;
@@ -395,7 +395,7 @@
   };
 
   /* ---- Boss 血条 ---- */
-  /* ---- EMP 冲击波环(由 game 层在触发时绘制一次) ---- */
+  /* ---- EMP 局部伤害边界与扩散环；全屏清弹闪光由 game 层绘制 ---- */
   R.drawEmpWave = function (ctx, x, y, radius, progress) {
     if (progress >= 1) return;
     var r = radius * progress;
@@ -409,6 +409,10 @@
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.globalAlpha=alpha*.35;
+    ctx.lineWidth=1;
+    ctx.setLineDash([6,6]);
+    ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.stroke();
     ctx.restore();
   };
 })();

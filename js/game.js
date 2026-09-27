@@ -26,7 +26,7 @@
   var MODE = L.ENDLESS; /* endless | campaign | roguelike */
   var DIFFICULTY = 'normal'; /* easy | normal | hard */
   var level = 0, levelWave = 0, levelPlan = [], campaignClearT = -1;
-  var rogueChoices = [];
+  var rogueChoices = [], decisionSerial=0, eliteUntil=0, eliteReward=false, upgradesLeft=0, eliteClears=0, challengeBossSpawned=false;
   var runStats, encounter = "", spawnGap = 1;
   var lastMode = L.ENDLESS;
   var score = 0, combo = 0, lastKillAt = -1;
@@ -35,7 +35,8 @@
   var keys = {};
   var shake = 0;
   /* v1.2: 主动技能 EMP 与新道具 buff 状态 */
-  var empCdUntil = 0;      /* EMP 冷却截止时刻(performance.now 毫秒) */
+  var empCooldown = 0;     /* 剩余战斗秒数；暂停与选择面板不推进 */
+  var empProtection=0, empReadyPulse=0, empDeniedPulse=0, empNoticeTime=0;
   var empWave = null;      /* EMP 冲击波动画 {x,y,r,maxR,t0,dur} */
   var empBtn = null;
 
@@ -57,7 +58,7 @@
     var ids = ['hud-score', 'hud-wave', 'hud-combo', 'hud-weapon', 'hud-shield', 'hud-lives', 'hud-hp', 'hud-buff',
       'overlay', 'panel-start', 'panel-pause', 'panel-over', 'panel-victory', 'panel-upgrade',
       'final-score', 'victory-score', 'new-record', 'victory-record', 'mode-tag', 'upgrade-cards',
-      'run-over', 'run-victory', 'build-progress', 'hud-build', 'btn-emp', 'emp-cd', 'hud', 'boss-hud', 'boss-name', 'boss-phase', 'boss-health', 'boss-health-fill', 'boss-skill', 'boss-music'];
+      'run-over', 'run-victory', 'build-progress', 'hud-build', 'btn-emp', 'emp-cd', 'emp-feedback', 'hud', 'boss-hud', 'boss-name', 'boss-phase', 'boss-phase-short', 'hud-firepower', 'pause-details', 'boss-health', 'boss-health-fill', 'boss-skill', 'boss-music'];
     for (var i = 0; i < ids.length; i++) dom[ids[i]] = document.getElementById(ids[i]);
     pauseBtn = document.getElementById('btn-pause');
   }
@@ -72,10 +73,12 @@
     var profile = L.bossProfile(boss.kind);
     var ratio = U.clamp(boss.hp / boss.maxHp, 0, 1);
     dom['boss-name'].textContent = boss.name;
-    dom['boss-phase'].textContent = '阶段 ' + boss.phase + (boss.turrets ? ' · 炮台 '+boss.turrets.filter(function(t){return t.hp>0;}).length+'/2' : '');
+    dom['boss-phase'].textContent = (L.bossProtected(boss)?'入场护盾 · 首轮攻击后解除':'阶段 ' + boss.phase) + (boss.turrets ? ' · 炮台 '+boss.turrets.filter(function(t){return t.hp>0;}).length+'/2' : '');
+    dom['boss-phase-short'].textContent=(L.bossProtected(boss)?'入场护盾':'阶段 '+boss.phase)+(boss.turrets?' · 炮台 '+boss.turrets.filter(function(t){return t.hp>0;}).length+'/2':'');
+    dom['boss-phase-short'].setAttribute('aria-label',dom['boss-phase'].textContent);
     dom['boss-health-fill'].style.transform = 'scaleX(' + ratio + ')';
     dom['boss-health'].setAttribute('aria-valuenow', Math.round(ratio * 100));
-    dom['boss-skill'].textContent = profile.skill + (boss.pending ? ' · 蓄力' : ' · 装填');
+    dom['boss-skill'].textContent = profile.skill + (boss.recovery>0&&L.bossDamageScale(boss)>1?' · 弱点开放':boss.pending ? ' · 蓄力' : ' · 装填');
     dom['boss-music'].textContent = '♫ ' + profile.music.title;
     dom['boss-hud'].classList.toggle('phase-two', boss.phase === 2);
     dom['boss-hud'].classList.toggle('charging', !!boss.pending);
@@ -92,11 +95,15 @@
       dom['mode-tag'].textContent = '肉鸽模式 · ' + dLabel;
     } else {
       dom['hud-wave'].textContent = 'WAVE ' + pad(Math.max(1, wave), 2);
-      dom['mode-tag'].textContent = '无限模式 · ' + dLabel;
+      dom['mode-tag'].textContent = L.modeLabel(MODE) + ' · ' + dLabel;
+      if(MODE==='challenge')dom['hud-wave'].textContent='剩余 '+Math.max(0,Math.ceil(180-(runStats?runStats.seconds:0)))+' 秒';
+      if(MODE==='bossrush')dom['hud-wave'].textContent='BOSS '+Math.min(5,wave/5)+' / 5';
     }
     dom['hud-combo'].textContent = combo > 1 ? 'COMBO \u00d7' + L.comboMultiplier(combo).toFixed(1) : 'COMBO \u00d71';
     if (!player) return; /* player 创建前的启动态,保留 HTML 默认值 */
     dom['hud-weapon'].textContent = L.shipPreset(player.ship).name + ' PWR ' + player.weapon;
+    dom['hud-firepower'].textContent='PWR '+player.weapon;
+    dom['hud-firepower'].setAttribute('aria-label','火力等级 '+player.weapon);
     dom['hud-shield'].textContent = 'SHIELD ' + player.shield;
     dom['hud-lives'].textContent = 'LIVES ' + player.lives;
     dom['hud-hp'].textContent = 'HP ' + player.hp + '/' + player.hpMax;
@@ -110,12 +117,16 @@
     }
     /* v1.2: EMP 冷却显示 */
     if (dom['emp-cd'] && dom['btn-emp']) {
-      var cdLeft = Math.max(0, empCdUntil - now) / 1000;
+      var cdLeft = empCooldown;
       var cooling = cdLeft > 0;
-      dom['emp-cd'].textContent = cooling ? Math.ceil(cdLeft) + 's' : '就绪';
+      dom['emp-cd'].textContent = cooling ? empCooldownLabel() + 's' : '就绪';
       dom['btn-emp'].classList.toggle('cooldown', cooling);
+      dom['btn-emp'].classList.toggle('emp-ready',empReadyPulse>0);
+      dom['btn-emp'].classList.toggle('emp-denied',empDeniedPulse>0);
+      dom['emp-feedback'].classList.toggle('hidden',empNoticeTime<=0||STATE!=='playing');
+      dom['emp-feedback'].style.top=Math.min(hudBottom+12,H-100)+'px';
       dom['btn-emp'].style.setProperty('--emp-charge', U.clamp(1 - cdLeft / L.EMP_COOLDOWN, 0, 1));
-      dom['btn-emp'].setAttribute('aria-label', cooling ? 'EMP 冷却中，剩余 ' + Math.ceil(cdLeft) + ' 秒' : '释放 EMP');
+      dom['btn-emp'].setAttribute('aria-label', cooling ? 'EMP 冷却中，剩余 ' + empCooldownLabel() + ' 秒' : '释放 EMP');
       dom['btn-emp'].setAttribute('aria-disabled', cooling ? 'true' : 'false');
     }
   }
@@ -130,6 +141,7 @@
     if (pauseBtn) pauseBtn.style.display = (STATE === 'playing') ? '' : 'none';
     /* EMP 技能钮只在 playing 状态显示 */
     if (empBtn) empBtn.style.display = (STATE === 'playing') ? 'block' : 'none';
+    dom['emp-feedback'].classList.toggle('hidden',empNoticeTime<=0||STATE!=='playing');
   }
 
   /* ---- 尺寸 / DPR ---- */
@@ -200,12 +212,16 @@
 
   /* 当前波难度 */
   function currentDiff() {
-    if (MODE === L.CAMPAIGN) return L.campaignDifficulty(level, DIFFICULTY);
-    return L.difficulty(wave, DIFFICULTY);
+    var d=MODE===L.CAMPAIGN?L.campaignDifficulty(level,DIFFICULTY):L.difficulty(wave,DIFFICULTY);
+    if(MODE==='challenge')d=L.difficulty([3,9,17][L.challengeStage(runStats.seconds)],DIFFICULTY);
+    if(MODE===L.ROGUELIKE&&wave<=eliteUntil){d.hpMul*=1.25;d.bulletSpeedMul*=1.1;}
+    return d;
   }
 
   function nextWave() {
     bossKilled = false;
+    if(MODE==='bossrush'){if(wave>=25){victory();return;}wave+=5;spawnSeq=[];enemies=[];pbullets.clear();ebullets.clear();powerups=[];spawnTimer=1.2;return;}
+    if(MODE==='challenge'){wave++;var trial=L.challengeConfig(runStats.seconds,DIFFICULTY);spawnSeq=buildSpawnSeq(trial);waveSpawnInterval=trial.spawnInterval;spawnTimer=.6;A.play('wave');return;}
     if (MODE === L.CAMPAIGN) {
       /* 闯关:推进 levelPlan 的下一波 */
       var plan = L.campaignConfig(level, DIFFICULTY);
@@ -242,13 +258,14 @@
   }
 
   function currentBossHp() {
+    if(MODE==='challenge')return runStats.seconds>=120&&!challengeBossSpawned?{easy:180,normal:260,hard:360}[DIFFICULTY]:0;
     if (MODE === L.CAMPAIGN) {
       var plan = L.campaignConfig(level, DIFFICULTY);
       var w = plan.waves[levelWave - 1];
       return w && w.boss ? w.bossHp : 0;
     }
     var cfg = L.waveConfig(wave, DIFFICULTY);
-    return cfg.boss ? cfg.bossHp : 0;
+    return cfg.boss ? cfg.bossHp*(MODE==='bossrush'?1.6:MODE===L.ROGUELIKE&&wave<=eliteUntil?1.25:1) : 0;
   }
 
   function spawnFromSeq() {
@@ -278,7 +295,7 @@
     b.x = x; b.y = y; b.vx = vx; b.vy = vy; b.r = 3; b.dead = false;
     b.dmg = player.__lastDmg || player.damage;
     b.weaponId = player.weaponId; b.tier=player.weapon;
-    b.source = "weapon"; b.bonus = player.__lastBonus || 0;
+    b.source = "weapon"; b.bonus = player.__lastBonus || 0; b.evolution=player.evolution; b.hitTargets=[]; b.secondaryDone=false;
   }
 
   function playerFire() {
@@ -286,12 +303,13 @@
     var crit = L.rollCrit(player);
     var dmg = player.damage * (crit.crit ? crit.mul : 1) * (rageOn ? 1.5 : 1);
     var extra = crit.crit && L.hasSynergy(player,"critical") ? player.damage * 0.5 * (rageOn ? 1.5 : 1) : 0;
-    dmg += extra; player.__lastBonus = extra;
+    dmg += extra; var evo=L.evolution(player);dmg*=evo.damage;extra*=evo.damage; player.__lastBonus = extra;
     if (crit.crit) A.play('hit');
     player.__lastDmg = dmg;
     L.weaponShots(player.weaponId,player.weapon,player.spread).forEach(function(shot){
       player.__lastDmg=dmg*shot.mul;player.__lastBonus=extra*shot.mul;
-      firePlayerBullet(player.x+shot.x,player.y+shot.y,shot.vx,shot.vy);
+      var angle=Math.atan2(shot.vx,-shot.vy)*(evo.id==='focus'?.35:evo.id==='wide'?1.45:1),speed=Math.hypot(shot.vx,shot.vy);
+      firePlayerBullet(player.x+shot.x,player.y+shot.y,Math.sin(angle)*speed,-Math.cos(angle)*speed);
     });
     A.play('shoot');
   }
@@ -354,6 +372,7 @@
   }
 
   function dealDamage(e, amount, source, bonus) {
+    if(L.bossProtected(e))return;
     var scale=E.shieldScale(e,now); amount*=scale; bonus=(bonus||0)*scale;
     var actual = Math.max(0, Math.min(e.hp, amount));
     runStats[source] += actual;
@@ -366,7 +385,7 @@
       '\n主炮伤害 ' + Math.round(runStats.weapon) + ' · EMP 伤害 ' + Math.round(runStats.emp) + ' · 反击伤害 ' + Math.round(runStats.reflect) +
       '\nEMP 使用 ' + runStats.empUses + ' 次 · 清弹 ' + runStats.cleared + ' 发 · 最高连击 ' + runStats.combo +
       '\n组合额外伤害 ' + Math.round(runStats.synergyDamage) + ' · 回能 ' + runStats.refund.toFixed(1) + ' 秒 · 再生 ' + runStats.healing + ' HP' +
-      '\n流派：' + names + '\n' + (STATE === 'victory' ? '完成全部关卡' : '致命伤害：' + runStats.cause);
+      '\n搭配：'+L.shipPreset(player.ship).name+' / '+L.weaponPreset(player.weaponId).name+' / '+L.evolution(player).label+'\n路线：'+(runStats.routes.join(' → ')||'标准航线')+'\n流派：' + names + '\n' + (STATE === 'victory' ? MODE==='challenge'?'完成 180 秒挑战':MODE==='bossrush'?'完成五场 Boss 连战':'完成全部关卡' : '致命伤害：' + runStats.cause);
   }
 
   function killEnemy(e) {
@@ -410,6 +429,7 @@
   }
 
   function dropPowerup(x, y, force) {
+    if(MODE==='challenge'||MODE==='bossrush')return;
     var kind;
     if (force) {
       if (player.hp < player.hpMax) kind = 'H';
@@ -447,19 +467,21 @@
     burst(p.x, p.y, R.C.yellow, 12, 140);
   }
 
-  function hurtPlayer(cause) {
-    if (STATE !== 'playing' || player.invUntil > now) return;
+  function hurtPlayer(cause,sourceX,sourceY) {
+    if (STATE !== 'playing' || player.invUntil > now || empProtection>0) return;
     runStats.cause = cause || '敌方攻击';
+    player.hitUntil=now+350;player.hitAngle=Number.isFinite(sourceX)?Math.atan2(sourceY-player.y,sourceX-player.x):-Math.PI/2;
     if (player.reflect > 0) {
       var enhanced = L.hasSynergy(player,'sustain');
       for (var ri=0;ri<8;ri++) {
         var a=ri*Math.PI/4, shot=pbullets.obtain();
         shot.x=player.x;shot.y=player.y;shot.vx=Math.cos(a)*320;shot.vy=Math.sin(a)*320;
-        shot.r=3;shot.dead=false;shot.dmg=player.reflect*(enhanced?2:1);shot.source='reflect';shot.bonus=enhanced?player.reflect:0;
+        shot.r=3;shot.dead=false;shot.dmg=player.reflect*(enhanced?2:1);shot.source='reflect';shot.evolution=null;shot.hitTargets=null;shot.secondaryDone=false;shot.bonus=enhanced?player.reflect:0;
       }
     }
     if (player.shield > 0) {
-      player.shield--;
+      player.shield--;player.shieldHitUntil=now+220;
+      if(player.shield===0){A.play('shieldBreak');encounter='护盾击破';}
       player.invUntil = now + 800;
       A.play('hit');
       burst(player.x, player.y, R.C.cyan, 8, 120);
@@ -477,7 +499,7 @@
       }
       player.hp = player.hpMax;
       player.invUntil = now + 1600;
-      player.weapon = Math.max(1, player.weapon - 1);
+      player.weapon = MODE==='challenge'?2:Math.max(MODE==='bossrush'?2:1, player.weapon - 1);
       player.shield = 0;
     } else {
       player.invUntil = now + 800;
@@ -489,9 +511,13 @@
     MODE = mode || lastMode || L.ENDLESS;
     lastMode = MODE;
     A.init();
-    runStats = {seconds:0,kills:0,bosses:0,weapon:0,emp:0,reflect:0,synergyDamage:0,empUses:0,cleared:0,combo:0,refund:0,healing:0,sustainKills:0,cause:"未知"};
+    eliteUntil=0;eliteReward=false;eliteClears=0;challengeBossSpawned=false;upgradesLeft=0;decisionSerial++;
+    HISCORE_KEY='neon-strike-hiscore-'+MODE+'-'+DIFFICULTY;loadHi();
+    runStats = {seconds:0,kills:0,bosses:0,weapon:0,emp:0,reflect:0,synergyDamage:0,empUses:0,cleared:0,combo:0,refund:0,healing:0,sustainKills:0,cause:"未知",routes:[]};
     encounter = "编队接近";
     player = E.createPlayer(W, H, DFJ.Hangar ? DFJ.Hangar.selected() : 'falcon', DFJ.Hangar && DFJ.Hangar.selectedWeapon ? DFJ.Hangar.selectedWeapon() : 'pulse');
+    if(MODE==='challenge'){player=E.createPlayer(W,H,'falcon','pulse');player.weapon=2;player.damage=1.4;}
+    if(MODE==='bossrush'){player.weapon=3;player.damage=1; }
     player.lives = L.difficultyPreset(DIFFICULTY).lives; /* 难度决定命数 */
     enemies = []; boss = null; bossKilled = false; powerups = [];
     pbullets.clear(); ebullets.clear(); particles.clear();
@@ -499,7 +525,7 @@
     score = 0; combo = 0; lastKillAt = -1;
     spawnSeq = []; spawnTimer = 0; shake = 0;
     rogueChoices = [];
-    empCdUntil = 0; empWave = null;
+    empCooldown=0;empProtection=0;empReadyPulse=0;empDeniedPulse=0;empNoticeTime=0;empWave=null;
     nextWave();
     STATE = 'playing';
     setPanel('none');
@@ -542,7 +568,11 @@
   }
 
   /* ---- 肉鸽升级三选一 ---- */
-  function openUpgrade() {
+  function openUpgrade(extraPick) {
+    var serial=++decisionSerial;
+    if(!extraPick){var rewarded=eliteReward&&wave>=eliteUntil;if(rewarded)eliteClears++;upgradesLeft=rewarded&&eliteClears<=3?2:1;if(rewarded&&eliteClears>3){player.hp=Math.min(player.hpMax,player.hp+1);player.shield=Math.min(3,player.shield+1);}eliteReward=false;}
+    document.getElementById("choice-title").textContent="选择强化";
+    document.getElementById("choice-subtitle").textContent="本轮剩余 "+upgradesLeft+" 次选择";
     ebullets.clear(); /* 清残余敌弹,避免升级面板结束后残留伤害 */
     rogueChoices = L.rogueRoll(player, 3, Math.random);
     dom['build-progress'].textContent = L.SYNERGIES.map(function(x){return (x.ready(player)?'✓ 已激活 · ':L.synergyProgress(player,x.id)+'/2 · ')+x.name+'：'+x.desc;}).join('\n');
@@ -556,7 +586,7 @@
         var future = L.rogueApply(player,perk.id);
         var unlock = L.synergies(future).filter(function(x){return !x.ready(player);});
         if (unlock.length) card.innerHTML += '<span class="perk-unlock">激活：'+unlock.map(function(x){return x.name;}).join(' / ')+'</span>';
-        card.addEventListener('click', function () { choosePerk(perk.id); });
+        card.addEventListener('click', function () { if(STATE!=='upgrade'||serial!==decisionSerial)return;STATE='resolving';choosePerk(perk.id); });
         host.appendChild(card);
       })(rogueChoices[i]);
     }
@@ -572,20 +602,48 @@
     player.crit = s.crit; player.critDmg = s.critDmg; player.magnet = s.magnet;
     player.reflect = s.reflect; player.vamp = s.vamp; player.emp = s.emp;
     A.play('pickup');
-    STATE = 'playing';
-    setPanel('none');
-    nextWave();
-    updateHUD();
+    if(MODE===L.ROGUELIKE){if(--upgradesLeft>0){openUpgrade(true);return;}openEvolutionOrRoute();return;}
+    continueRun();
+  }
+
+  function continueRun(){STATE='playing';setPanel('none');nextWave();updateHUD();}
+  function decision(title,subtitle,choices,choose){
+    STATE='decision';A.stopMusic();ebullets.clear();pbullets.clear();if(flightInput)flightInput.reset();keys={};
+    var serial=++decisionSerial;document.getElementById('choice-title').textContent=title;document.getElementById('choice-subtitle').textContent=subtitle;
+    dom['build-progress'].textContent='';var host=dom['upgrade-cards'];host.innerHTML='';
+    choices.forEach(function(option){var button=document.createElement('button');button.className='perk-card';button.textContent=option.label+'：'+option.desc;button.setAttribute('data-choice',option.id);button.onclick=function(){if(STATE!=='decision'||serial!==decisionSerial)return;STATE='resolving';choose(option.id);};host.appendChild(button);});setPanel('panel-upgrade');
+  }
+  function openEvolutionOrRoute(){
+    if(!player.evolution&&wave>=3){decision('武器进化','本局只能选择一条分支，重开后重置',L.EVOLUTIONS[player.weaponId],function(id){player.evolution=id;openRoute();});}
+    else openRoute();
+  }
+  function openRoute(){decision('选择下一段路线','下一段持续三波；前三次精英额外强化，之后改为补给',[
+    {id:'repair',label:'维修区',desc:'立即恢复 1 HP，放弃额外补给'},
+    {id:'supply',label:'补给区',desc:'立即获得 1 层护盾，上限 3'},
+    {id:'elite',label:'精英战',desc:'三波敌人 HP +25%、弹速 +10%；'+(eliteClears<3?'完成后多选一次强化（本局还剩 '+(3-eliteClears)+' 次）':'完成后恢复 1 HP、增加 1 层护盾')}
+  ],function(id){runStats.routes.push({repair:'维修',supply:'补给',elite:'精英'}[id]);if(id==='repair')player.hp=Math.min(player.hpMax,player.hp+1);if(id==='supply')player.shield=Math.min(3,player.shield+1);if(id==='elite'){eliteUntil=wave+3;eliteReward=true;}continueRun();});}
+  function bossRest(){decision('战间整备','恢复或强化二选一，下一场立即迎战 Boss',[
+    {id:'repair',label:'紧急维修',desc:'恢复 1 HP'}, {id:'damage',label:'火控升级',desc:'基础伤害 +0.25'}
+  ],function(id){if(id==='repair')player.hp=Math.min(player.hpMax,player.hp+1);else player.damage+=.25;continueRun();});}
+  function evolutionImpact(b,target){
+    if(b.source!=='weapon'||b.secondaryDone||(b.evolution!=='chain'&&b.evolution!=='blast'))return;
+    b.secondaryDone=true;var range=b.evolution==='chain'?120:70,limit=b.evolution==='chain'?1:3;
+    var targets=enemies.filter(function(e){return e!==target&&!e.dead&&!e.ghosted&&!(e.warning>0)&&Math.hypot(e.x-target.x,e.y-target.y)<=range;}).sort(function(a,c){return Math.hypot(a.x-target.x,a.y-target.y)-Math.hypot(c.x-target.x,c.y-target.y);}).slice(0,limit);
+    targets.forEach(function(e){var factor=b.evolution==='chain'?.55:.35;dealDamage(e,b.dmg*factor,'weapon',(b.bonus||0)*factor);e.flash=.12;burst(e.x,e.y,R.C.cyan,5,90);if(e.hp<=0)killEnemy(e);});
+    if(targets.length)burst(target.x,target.y,R.C.cyan,10,140);
   }
 
 /* ---- v1.2 主动技能: EMP 电磁脉冲 ----
    * 冷却 10s;范围伤害+眩晕+清屏敌弹 */
+  function empCooldownLabel(){return empCooldown<=1?(Math.ceil(empCooldown*10)/10).toFixed(1):String(Math.ceil(empCooldown));}
+  function empNotice(text){dom['emp-feedback'].textContent=text;empNoticeTime=1.4;}
   function triggerEMP() {
     if (STATE !== 'playing' || !player) return;
-    if (now < empCdUntil) return;
+    if(empCooldown>0){empDeniedPulse=.25;empNotice('EMP 冷却中 · 还剩 '+empCooldownLabel()+' 秒');updateHUD();return;}
     runStats.empUses++; var killsBefore = runStats.kills;
     var pm = L.empParams(player.emp, Math.min(W, H));
-    empCdUntil = now + L.EMP_COOLDOWN * 1000;
+    empCooldown=L.EMP_COOLDOWN;empProtection=.25;empReadyPulse=0;empDeniedPulse=0;
+    var clearedBefore=runStats.cleared,bossFeedback=boss?(L.bossProtected(boss)?'Boss 入场护盾 · 伤害与干扰免疫':'Boss 不在伤害范围'):'';
     empWave = { x: player.x, y: player.y, maxR: pm.radius, t: 0, dur: 0.5 };
     var i, e;
     // Disable support links before applying any EMP damage, regardless of array order.
@@ -601,12 +659,12 @@
         if (e.hp <= 0) { e.dead = true; killEnemy(e); enemies.splice(i, 1); }
       }
     }
-    if (boss && !boss.dead) {
+    if (boss && !boss.dead && !L.bossProtected(boss)) {
       (boss.turrets||[]).forEach(function(t){var pos=L.turretPosition(boss,t);if(t.hp>0&&Math.hypot(pos.x-player.x,pos.y-player.y)<=pm.radius)runStats.emp+=L.damageTurret(boss,t,pm.dmg*.35);});
       var bdx = boss.x - player.x, bdy = boss.y - player.y;
       if (bdx * bdx + bdy * bdy <= pm.radius * pm.radius) {
         dealDamage(boss, pm.dmg * 0.35 * L.bossDamageScale(boss), "emp", 0); boss.flash = 0.12;
-        boss.fireCd += pm.stun * 0.6;  /* Boss 免疫全额眩晕,延长射击间隔 */
+        bossFeedback='Boss 火控受扰';boss.fireCd += pm.stun * 0.6;  /* Boss 免疫全额眩晕,延长射击间隔 */
         if (boss.hp <= 0) { boss.dead = true; killEnemy(boss); boss = null; bossKilled = true; }
       }
     }
@@ -614,8 +672,10 @@
     ebullets.forEach(function (b) { if (!b.dead) runStats.cleared++; b.dead = true; });
     if (L.hasSynergy(player,'pulse')) {
       var refund = Math.min(3, (runStats.kills-killsBefore)*0.6);
-      empCdUntil -= refund*1000; runStats.refund += refund;
+      empCooldown = Math.max(0,empCooldown-refund); runStats.refund += refund;
     }
+    empNotice('EMP 清除 '+(runStats.cleared-clearedBefore)+' 发弹幕'+(bossFeedback?'\n'+bossFeedback:''));
+    updateHUD();
     A.play('bigBoom');
     shake = Math.max(shake, 10);
     burst(player.x, player.y, R.C.cyan, 24, 220);
@@ -623,6 +683,7 @@
 
   function pause() {
     if (STATE !== 'playing') return;
+    dom['pause-details'].textContent=L.modeLabel(MODE)+' · '+L.difficultyPreset(DIFFICULTY).label+'\n'+L.shipPreset(player.ship).name+' / '+L.weaponPreset(player.weaponId).name+' / '+L.evolution(player).label+'\n'+(L.synergies(player).map(function(x){return x.name;}).join(' · ')||'暂无激活组合')+(boss?'\n'+boss.name+' · ♫ '+L.bossProfile(boss.kind).music.title:'');
     STATE = 'paused';
     A.stopMusic();
     setPanel('panel-pause');
@@ -636,6 +697,10 @@
 
   /* ---- 输入 ---- */
   function bindInput() {
+    var volumeInputs=document.querySelectorAll('.volume-control');
+    Array.prototype.forEach.call(volumeInputs,function(input){input.value=A.volumes()[input.getAttribute('data-volume')]*100;input.addEventListener('input',function(){A.setVolume(input.getAttribute('data-volume'),Number(input.value)/100);Array.prototype.forEach.call(volumeInputs,function(other){other.value=A.volumes()[other.getAttribute('data-volume')]*100;});});});
+    Array.prototype.forEach.call(document.querySelectorAll('.audio-preview'),function(button){button.addEventListener('click',function(){A.preview();});});
+
     window.addEventListener('pointerdown', function () { A.init(); }, true);
     window.addEventListener('keydown', function (e) {
       A.init();
@@ -643,7 +708,7 @@
       if (k === 'p' || k === 'escape') {
         if (STATE === 'playing') pause(); else if (STATE === 'paused') resume();
       }
-      if (k === 'e') triggerEMP();
+      if (k === 'e' && !e.repeat) triggerEMP();
       if (k === 'enter' && e.target && e.target.closest && e.target.closest('button,summary,input,select,textarea')) return;
       if (k === 'enter') {
         if (STATE === 'start') startGame(lastMode || L.ENDLESS);
@@ -743,7 +808,7 @@
     player.fireCd -= dt;
     while (player.fireCd <= 0) {
       var rate = player.fireRate * (player.rageUntil > now ? 2 : 1); /* v1.2 狂暴射速x2 */
-      player.fireCd += (player.weapon === 1 ? 0.16 : player.weapon === 2 ? 0.14 : 0.11) * L.weaponPreset(player.weaponId).interval / rate;
+      player.fireCd += (player.weapon === 1 ? 0.16 : player.weapon === 2 ? 0.14 : 0.11) * L.weaponPreset(player.weaponId).interval * L.evolution(player).interval / rate;
       playerFire();
     }
   }
@@ -752,8 +817,15 @@
   function update(dt) {
     now = performance.now();
     if (STATE !== 'playing') return;
+    if(MODE==='challenge'&&runStats.seconds>=180){victory();return;}
 
+    var wasCooling=empCooldown>0;
+    empCooldown=Math.max(0,empCooldown-dt);if(empCooldown<1e-8)empCooldown=0;
+    empProtection=Math.max(0,empProtection-dt);
+    empReadyPulse=Math.max(0,empReadyPulse-dt);empDeniedPulse=Math.max(0,empDeniedPulse-dt);empNoticeTime=Math.max(0,empNoticeTime-dt);
+    if(wasCooling&&empCooldown===0)empReadyPulse=.6;
     runStats.seconds += dt;
+    if(MODE==='challenge'&&runStats.seconds>=180){runStats.seconds=180;victory();return;}
     dom["hud-build"].textContent = encounter + (MODE === L.ROGUELIKE ? " · " + (L.synergies(player).map(function(x){return x.name;}).join(" / ") || "组合待成型") : "");
     movePlayer(dt);
     gridOff += 40 * dt;
@@ -812,8 +884,9 @@
         } else {
           ordinal = Math.max(0, Math.floor(wave / 5) - 1);
         }
-        var entry = L.bossOf(Math.max(0, ordinal));
+        var entry = MODE==='challenge'?L.bossProfile('nova'):L.bossOf(Math.max(0, ordinal));
         boss = E.spawnBoss(W, { bossHp: bossHp, kind: entry.id, difficulty: DIFFICULTY });
+        if(MODE==='challenge')challengeBossSpawned=true;
         boss.maxHp = boss.hp;
         A.play('boss');
       }
@@ -823,7 +896,7 @@
     if (boss) {
       boss.phase = L.bossPhase(boss.hp / boss.maxHp);
       boss.recovery = Math.max(0, (boss.recovery || 0) - dt);
-      if (!boss.pending) E.updateBoss(boss, dt, W);
+      if (!boss.pending && !(boss.kind==='phantom'&&boss.recovery>0)) E.updateBoss(boss, dt, W);
       else {
         boss.t += dt;
         boss.flash = Math.max(0, boss.flash - dt);
@@ -832,9 +905,10 @@
       if (boss.y >= boss.targetY && boss.fireCd <= 0) {
         if (boss.pending) bossShoot(boss);
         else {
-          if (boss.kind === 'phantom') {
+          if (boss.kind === 'phantom'&&(boss.attackIndex||0)%2===0) {
             burst(boss.x, boss.y, R.C.red, 14, 180);
-            boss.x = W * ((boss.attackIndex || 0) % 2 ? 0.25 : 0.75);
+            boss.x = L.phantomLanding(boss,W);
+            E.reanchorBoss(boss, W);
             burst(boss.x, boss.y, R.C.red, 14, 180);
           }
           boss.pending = L.bossAttack(boss, W, player.x, player.y);
@@ -862,8 +936,9 @@
       if (b.dead) return;
       for (var j = enemies.length - 1; j >= 0; j--) {
         var en = enemies[j];
-        if (!en.dead && !(en.warning>0) && !en.ghosted && L.circleHit(b.x, b.y, b.r, en.x, en.y, en.r)) {
-          dealDamage(en, b.dmg || player.damage, b.source || "weapon", b.bonus); b.dead = true;
+        if (!en.dead && !(en.warning>0) && !en.ghosted && (!b.hitTargets||b.hitTargets.indexOf(en)<0) && L.circleHit(b.x, b.y, b.r, en.x, en.y, en.r)) {
+          dealDamage(en, b.dmg || player.damage, b.source || "weapon", b.bonus); evolutionImpact(b,en);
+          if(b.source==='weapon'&&b.evolution==='pierce'){b.hitTargets.push(en);b.dead=b.hitTargets.length>=2;}else b.dead=true;
           en.flash = 0.08;
           if (en.hp <= 0) { en.dead = true; killEnemy(en); }
           break;
@@ -881,7 +956,7 @@
       if (!b.dead && boss && !boss.dead && L.circleHit(b.x, b.y, b.r, boss.x, boss.y, boss.r)) {
         /* 移动堡垒重甲:受到伤害 ×0.6 */
         dealDamage(boss, (b.dmg || player.damage) * L.bossDamageScale(boss), b.source || "weapon", (b.bonus || 0)*L.bossDamageScale(boss));
-        b.dead = true; boss.flash = 0.08;
+        evolutionImpact(b,boss); b.dead = true; boss.flash = 0.08;
         if (boss.hp <= 0) { boss.dead = true; killEnemy(boss); boss = null; bossKilled = true; }
       }
     });
@@ -889,7 +964,7 @@
     /* 敌弹命中玩家 */
     ebullets.forEach(function (b) {
       if (!b.dead && L.circleHit(b.x, b.y, b.r, player.x, player.y, player.r)) {
-        b.dead = true; hurtPlayer("敌方弹幕");
+        b.dead = true; hurtPlayer("敌方弹幕",b.x,b.y);
       }
     });
 
@@ -901,11 +976,11 @@
     for (var k = enemies.length - 1; k >= 0; k--) {
       var ee = enemies[k];
       if (!ee.dead && !ee.optional && L.circleHit(ee.x, ee.y, ee.r, player.x, player.y, player.r)) {
-        ee.dead = true; burst(ee.x, ee.y, R.C.magenta, 10, 160); A.play('boom'); hurtPlayer('敌机碰撞');
+        ee.dead = true; burst(ee.x, ee.y, R.C.magenta, 10, 160); A.play('boom'); hurtPlayer('敌机碰撞',ee.x,ee.y);
       }
     }
     if (boss && !boss.dead && L.circleHit(boss.x, boss.y, boss.r, player.x, player.y, player.r)) {
-      hurtPlayer("Boss 碰撞");
+      hurtPlayer("Boss 碰撞",boss.x,boss.y);
     }
 
     /* 道具 */
@@ -933,7 +1008,6 @@
     if (empWave) {
       empWave.t += dt;
       var prog = empWave.t / empWave.dur;
-      R.drawEmpWave(ctx, empWave.x, empWave.y, empWave.maxR, prog);
       if (prog >= 1) empWave = null;
     }
 
@@ -946,6 +1020,7 @@
     /* 波次推进:Boss 已死则立即推进(无视残留的召唤杂兵) */
     if ((STATE === 'playing' && bossKilled) || parentWaveClear()) {
       bossKilled = false;
+      if(MODE==='bossrush'){if(wave>=25)victory();else bossRest();return;}
       if (MODE === L.ROGUELIKE && wave > 0 && wave % L.ROGUE_WAVES_PER_PERK === 0) {
         openUpgrade(); /* 每 3 波触发三选一,选中后 nextWave */
       } else {
@@ -1028,6 +1103,8 @@
 
     /* Boss */
     if (boss) {
+      if(L.bossProtected(boss)){ctx.save();ctx.strokeStyle=R.C.cyan;ctx.globalAlpha=.65;ctx.lineWidth=2;ctx.beginPath();ctx.arc(boss.x,boss.y,boss.r+12,0,Math.PI*2);ctx.stroke();ctx.restore();}
+      if(boss.kind==='phantom'&&!boss.pending&&boss.fireCd<.65&&(boss.attackIndex||0)%2===0){ctx.save();ctx.strokeStyle=R.C.red;ctx.setLineDash([5,5]);ctx.beginPath();ctx.arc(L.phantomLanding(boss,W),boss.y,boss.r+8,0,Math.PI*2);ctx.stroke();ctx.restore();}
       if (!(boss.flash > 0 && Math.floor(boss.flash * 20) % 2 === 0)) {
         R.drawBoss(ctx,boss);
       }
@@ -1073,12 +1150,19 @@
 
     /* 玩家 */
     if (player) {
+      if(player.hitUntil>now){ctx.save();ctx.strokeStyle=player.shieldHitUntil>now?R.C.cyan:R.C.red;ctx.lineWidth=3;ctx.globalAlpha=(player.hitUntil-now)/350;ctx.beginPath();ctx.arc(player.x,player.y,39,player.hitAngle-.5,player.hitAngle+.5);ctx.stroke();ctx.restore();}
       if (!(player.invUntil > now && Math.floor(now / 90) % 2 === 0)) {
         R.drawPlayer(ctx,player,now/1000);
       }
     }
 
     ctx.restore();
+    // Draw after the background/entities, never from update (which gets cleared).
+    if(empWave){
+      if(empWave.t<.18){ctx.save();ctx.fillStyle=R.C.cyan;ctx.globalAlpha=.08*(1-empWave.t/.18);ctx.fillRect(0,0,W,H);ctx.restore();}
+      R.drawEmpWave(ctx,empWave.x,empWave.y,empWave.maxR,empWave.t/empWave.dur);
+    }
+    if(player&&empProtection>0){ctx.save();ctx.strokeStyle=R.C.cyan;ctx.lineWidth=2;ctx.globalAlpha=.8;ctx.beginPath();ctx.arc(player.x,player.y,player.r+9,0,Math.PI*2);ctx.stroke();ctx.restore();}
   }
 
   /* ---- 主循环 ---- */
@@ -1113,7 +1197,7 @@
         ebulletPool: ebullets.active.length,
         pbulletPool: pbullets.active.length,
         player: player ? { x: player.x, y: player.y, hp: player.hp, lives: player.lives, rage: !!(player.rageUntil > now), frost: !!(player.frostUntil > now) } : null,
-        empCdLeft: Math.max(0, empCdUntil - now),
+        empCdLeft: empCooldown*1000,
         hudWave: dom['hud-wave'] ? dom['hud-wave'].textContent : ''
       };
     },

@@ -316,6 +316,12 @@ html, body {
 .emp-btn.cooldown { background: #0d1823; box-shadow: none; cursor: default; }
 .emp-btn.cooldown .emp-label { color: #8199a6; }
 .emp-btn.cooldown #emp-cd { color: #d1dce3; font-variant-numeric: tabular-nums; }
+.emp-feedback { position:fixed; left:50%; transform:translateX(-50%); z-index:9; pointer-events:none; max-width:calc(100vw - 24px); width:max-content; padding:7px 12px; border:1px solid #366b78; border-radius:8px; background:rgba(5,20,30,.88); color:#c8faff; font:12px/1.6 var(--mono); white-space:pre-line; text-align:center; }
+.emp-btn.emp-ready { animation:emp-ready .6s ease-out; }
+.emp-btn.emp-denied { animation:emp-denied .25s ease-out; }
+@keyframes emp-ready { 0%,100% { filter:brightness(1); } 35% { filter:brightness(1.7); box-shadow:0 0 30px rgba(0,240,255,.6); } }
+@keyframes emp-denied { 50% { box-shadow:0 0 0 2px #f3c76a; } }
+@media (prefers-reduced-motion:reduce) { .emp-btn.emp-ready,.emp-btn.emp-denied { animation:none; outline:2px solid #a5eaff; } }
 @media (hover: hover) { .emp-btn:not(.cooldown):hover { box-shadow: 0 0 28px rgba(0,240,255,.45); } }
 @media (pointer: coarse), (max-width: 640px) {
   .emp-btn { right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(clamp(24px, 12vh, 88px) + env(safe-area-inset-bottom, 0px)); }
@@ -333,6 +339,42 @@ html, body {
 
 /* Combat feedback stays readable on narrow and short screens. */
 .hud-build { grid-column:1 / -1; font-size:11px; color:#9ed5dc; overflow-wrap:anywhere; }
+#hud-firepower,#boss-phase-short { display:none; }
+.pause-details { white-space:pre-line; font-size:11px; line-height:1.5; color:#a9c9d1; margin:0 0 12px; }
+/* A fixed-height vital block avoids pushing the Boss down when buffs change. */
+@media (max-width:640px), (max-height:480px) {
+  #hud { gap:4px 8px; padding:calc(4px + env(safe-area-inset-top,0px)) calc(8px + env(safe-area-inset-right,0px)) 4px calc(8px + env(safe-area-inset-left,0px)); }
+  #mode-tag,#hud-weapon,#hud-build,#boss-music,#boss-phase { display:none; }
+  #hud-firepower,#boss-phase-short { display:inline; }
+  .hud-left { display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:0; height:44px; }
+  .hud-left .stat { width:auto; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+  .stat { font-size:10px; line-height:14px; letter-spacing:0; }
+  #hud-score { font-size:14px; line-height:16px; }
+  .hud-right { display:grid; grid-template-columns:auto auto; grid-template-rows:16px 16px 12px; gap:0 5px; align-content:start; justify-content:end; height:44px; }
+  #hud-hp { grid-column:1; grid-row:1; }
+  #hud-shield { grid-column:2; grid-row:1; }
+  #hud-lives { grid-column:1; grid-row:2; }
+  #hud-firepower { grid-column:2; grid-row:2; }
+  #hud-buff { grid-column:1 / -1; grid-row:3; font-size:9px; line-height:12px; letter-spacing:0; }
+  .boss-hud { max-width:none; }
+  .boss-heading,.boss-detail { font-size:10px; line-height:14px; }
+  #boss-phase-short { color:var(--yellow); white-space:nowrap; }
+  .boss-health { height:6px; margin:2px 0; }
+  .boss-detail { display:flex; }
+  .emp-btn { width:64px; height:64px; }
+  .emp-label { top:12px; font-size:10px; }
+  .emp-btn #emp-cd { top:27px; font-size:14px; }
+  .emp-key { display:none; }
+}
+@media (max-height:480px) and (min-width:481px) {
+  .hud-left { flex-direction:row; flex-wrap:wrap; align-content:center; justify-content:flex-start; gap:0 8px; }
+  .boss-hud { display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:12px; }
+  .boss-heading { grid-column:1; grid-row:1; justify-content:flex-start; }
+  .boss-detail { grid-column:2; grid-row:1; }
+  .boss-health { grid-column:1 / -1; grid-row:2; }
+  #panel-pause { max-height:94vh; overflow-y:auto; }
+  #panel-pause .pause-details { font-size:10px; line-height:1.3; margin-bottom:6px; }
+}
 .run-summary,.build-progress { white-space:pre-line; text-align:left; font-size:12px; line-height:1.8; color:#b7cadc; margin:14px 0; max-width:580px; }
 .perk-unlock { display:block; color:#8dffb4; font-size:12px; margin-top:8px; }
 .panel { max-height:calc(100dvh - 24px); overflow-y:auto; box-sizing:border-box; }
@@ -365,3 +407,6 @@ html, body {
 .launch-summary{grid-column:2;grid-row:4;margin:0;align-self:center}.launch-btn{grid-column:2;grid-row:5}
 .game-help{grid-column:2;grid-row:6/8;margin:0}
 }
+
+.audio-settings{margin:12px 0;color:#adcbd8;font-size:13px}.audio-settings label{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:10px 0}.volume-control{width:70%;accent-color:#61e5f1}.audio-preview{padding:8px 12px;background:#163840;color:#d5ffff;border:1px solid #36586c;border-radius:6px}.extra-modes{margin-top:8px}
+@media(max-height:480px) and (min-width:600px){#panel-start .extra-modes{grid-column:2;grid-row:4}#panel-start .launch-summary{grid-row:5}#panel-start .launch-btn{grid-row:6}#panel-start .game-help{grid-row:7}#panel-start>.audio-settings{grid-column:1;grid-row:8}}

@@ -14,7 +14,7 @@ E.updateShields([g,...friends],1500);assert.equal(E.shieldScale(friends[0],1500)
  assert(t.dead);assert(t.optional);
 }
 {
- const b=E.spawnBoss(390,{kind:'fortress',bossHp:200,difficulty:'normal'});b.x=195;b.y=200;b.phase=1;
+ const b=E.spawnBoss(390,{kind:'fortress',bossHp:200,difficulty:'normal'});b.x=195;b.y=200;b.phase=1;b.attackIndex=1;
  const full=L.bossAttack(b,390,195,690);b.pending=full;
  const fullCount=full.shots.length; const hp=b.hp,t=b.turrets[0];assert.equal(L.damageTurret(b,t,999),t.maxHp);assert.equal(b.hp,hp);
  assert(b.pending.shots.every(s=>s.turret!==0));
@@ -50,7 +50,7 @@ for(const n of [3,4,6,18]){
 }
 {
  const rr=make(1);rr.api.start('endless','normal',false);const cc=rr.api.combat();cc.player.fireCd=100;
- const b=E.spawnBoss(390,{kind:'fortress',bossHp:200,difficulty:'normal'});b.y=180;b.targetY=180;b.fireCd=100;cc.setBoss(b);
+ const b=E.spawnBoss(390,{kind:'fortress',bossHp:200,difficulty:'normal'});b.y=180;b.targetY=180;b.attackIndex=1;b.fireCd=100;cc.setBoss(b);
  const pos=L.turretPosition(b,b.turrets[0]),core=b.hp,part=b.turrets[0].hp;
  cc.bullets.push({x:pos.x,y:pos.y,vx:0,vy:0,r:3,dmg:2,source:'weapon',bonus:0,dead:false});
  rr.advance(.001);rr.api.tick(.001,195);assert.equal(b.hp,core);assert.equal(b.turrets[0].hp,part-2);assert.equal(cc.stats.weapon,2);
@@ -71,7 +71,7 @@ console.log('PASS: Boss cannot be skipped by optional/dead enemies; turret bound
 
 {
  const rr=make(1);rr.api.start('endless','normal',false);const cc=rr.api.combat();
- const b=E.spawnBoss(390,{kind:'fortress',bossHp:200});b.y=200;cc.setBoss(b);cc.player.x=b.x;cc.player.y=b.y+18;
+ const b=E.spawnBoss(390,{kind:'fortress',bossHp:200});b.y=200;b.attackIndex=1;cc.setBoss(b);cc.player.x=b.x;cc.player.y=b.y+18;
  const hp=b.hp,parts=b.turrets.map(t=>t.hp);cc.emp();
  assert(Math.abs(b.hp-(hp-.63))<1e-8);b.turrets.forEach((t,i)=>assert(Math.abs(t.hp-(parts[i]-1.05))<1e-8));
  assert(Math.abs(cc.stats.emp-2.73)<1e-8);assert.equal(cc.stats.kills,0);

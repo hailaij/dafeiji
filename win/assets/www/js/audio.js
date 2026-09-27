@@ -5,7 +5,9 @@
   'use strict';
   var DFJ = (window.DFJ = window.DFJ || {});
   var ctx = null, master = null, noiseBuf = null, muted = false;
-  var VOL = 0.35;
+  var VOL = 0.35, sfxBus=null, volumes={music:1,sfx:1}, previewUntil=0;
+  try {var saved=JSON.parse(localStorage.getItem('neon-strike-volume')||'{}');['music','sfx'].forEach(function(k){if(typeof saved[k]==='number'&&Number.isFinite(saved[k]))volumes[k]=Math.max(0,Math.min(1,saved[k]));});}catch(e){}
+
   var lastError = null, resuming = false;
   function resumeContext() {
     if (!ctx || (ctx.state !== 'suspended' && ctx.state !== 'interrupted') || resuming) return;
@@ -30,6 +32,7 @@
       master = ctx.createGain();
       master.gain.value = muted ? 0 : VOL;
       master.connect(ctx.destination);
+      sfxBus=ctx.createGain();sfxBus.gain.value=volumes.sfx;sfxBus.connect(master);
       var len = Math.floor(ctx.sampleRate * 0.5);
       noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
       var d = noiseBuf.getChannelData(0);
@@ -49,7 +52,7 @@
       if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t0 + dur);
       g.gain.setValueAtTime(vol, t0);
       g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-      o.connect(g); g.connect(master);
+      o.connect(g); g.connect(sfxBus);
       o.start(t0); o.stop(t0 + dur + 0.02);
     } catch (e) {}
   }
@@ -66,12 +69,13 @@
       var g = ctx.createGain();
       g.gain.setValueAtTime(vol, t0);
       g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-      src.connect(f); f.connect(g); g.connect(master);
+      src.connect(f); f.connect(g); g.connect(sfxBus);
       src.start(t0); src.stop(t0 + dur + 0.02);
     } catch (e) {}
   }
 
   var SFX = {
+    shieldBreak: function(){tone('triangle',1200,160,.22,.2);},
     shoot: function () { tone('square', 880, 220, 0.07, 0.10); },
     enemyShoot: function () { tone('sawtooth', 300, 180, 0.06, 0.05); },
     hit: function () { noise(0.05, 0.10, 2500); },
@@ -120,11 +124,12 @@
     o.start(time); o.stop(time + duration + 0.02);
   }
   function updateMusic(kind, phase) {
+    if(!kind&&Date.now()<previewUntil)kind='boss';
     if (!ctx || muted || !kind || ctx.state !== 'running') { if (musicKind) stopMusic(); return; }
     try {
       if (kind !== musicKind) {
         stopMusic(); musicKind = kind; musicStep = 0; musicNext = ctx.currentTime + 0.02;
-        musicBus = ctx.createGain(); musicBus.gain.value = 0.55; musicBus.connect(master);
+        musicBus = ctx.createGain(); musicBus.gain.value = 0.55*volumes.music; musicBus.connect(master);
       }
       var profile = DFJ.Logic.bossProfile(kind), m = profile.music;
       var stepTime = 60 / m.bpm / 4;
@@ -158,6 +163,9 @@
 
   DFJ.Audio = {
     init: init,
+    volumes: function(){return {music:volumes.music,sfx:volumes.sfx};},
+    setVolume: function(kind,value){if((kind!=='music'&&kind!=='sfx')||!Number.isFinite(value))return;volumes[kind]=Math.max(0,Math.min(1,value));if(sfxBus)sfxBus.gain.value=volumes.sfx;if(musicBus)musicBus.gain.value=.55*volumes.music;try{localStorage.setItem('neon-strike-volume',JSON.stringify(volumes));}catch(e){}},
+    preview: function(){init();previewUntil=Date.now()+3000;},
     status: function () { return {contextState: ctx ? ctx.state : 'uninitialized', musicKind: musicKind, muted: muted, lastError: lastError}; },
     updateMusic: updateMusic,
     stopMusic: stopMusic,

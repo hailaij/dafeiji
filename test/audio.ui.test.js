@@ -15,6 +15,9 @@ const {chromium}=require('playwright'),assert=require('assert'),{pathToFileURL}=
  assert.equal(await page.evaluate(()=>DFJ.Audio.status().contextState),'running');assert.equal(await page.evaluate(()=>DFJ.Audio.status().musicKind),roster.at(-1));
  await page.evaluate(()=>testCtx.suspend());await page.mouse.click(150,450);await page.waitForTimeout(150);assert.equal(await page.evaluate(()=>testCtx.state),'running');
  await page.evaluate(()=>DFJ.Audio.setMuted(true));await page.waitForTimeout(50);assert.equal(await page.evaluate(()=>DFJ.Audio.status().musicKind),null);await page.evaluate(()=>DFJ.Audio.setMuted(false));await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>DFJ.Audio.status().musicKind),roster.at(-1));
+ const volumeCheck=await page.evaluate(()=>{DFJ.Audio.setVolume('music',.2);DFJ.Audio.setVolume('sfx',.7);return {values:DFJ.Audio.volumes(),gains:testGains.map(g=>g.gain.value)};});
+ assert.deepEqual(volumeCheck.values,{music:.2,sfx:.7});assert(volumeCheck.gains.some(v=>Math.abs(v-.11)<1e-6));assert(volumeCheck.gains.some(v=>Math.abs(v-.7)<1e-6));
+ await page.evaluate(()=>DFJ.Audio.setVolume('music',0));assert.equal(await page.evaluate(()=>DFJ.Audio.volumes().sfx),.7);
  assert.deepEqual(errors,[]);assert.equal(await page.evaluate(()=>DFJ.Audio.status().lastError),null);
  console.log('PASS: 11 Boss tracks emit real WebAudio samples; pause/resume unlock, pointer unlock, mute/unmute and error-free scheduling');
 }finally{await b.close();}})().catch(e=>{console.error(e);process.exit(1);});

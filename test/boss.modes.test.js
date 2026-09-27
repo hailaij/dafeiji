@@ -40,7 +40,7 @@ const path = require('path');
     while (guard++ < 4000) {
       t += 0.04;
       const s = await probe();
-      if (s.STATE === 'upgrade') { await page.click('.perk-card'); await page.clock.runFor(200); continue; }
+      if ((s.STATE === 'upgrade' || s.STATE === 'decision')) { await page.locator('.perk-card').first().click(); await page.clock.runFor(200); continue; }
       if (isBossWave(s)) {
         /* 等 boss 登场 */
         let g2 = 0;
@@ -100,7 +100,7 @@ const path = require('path');
       await page.clock.runFor(50);
       const s = await probe();
       if (s.boss) { respawned = true; break; }
-      if (s.STATE === 'upgrade') { await page.click('.perk-card'); await page.clock.runFor(300); continue; }
+      if ((s.STATE === 'upgrade' || s.STATE === 'decision')) { await page.locator('.perk-card').first().click(); await page.clock.runFor(300); continue; }
       if (isAdvanced(s)) { advanced = true; break; }
     }
     console.log('二阶段出现: ' + phase2Seen + ' | 击杀时杂兵在场: ' + (minionsAtKill.length > 0) + (minionsAtKill.length ? ' (' + minionsAtKill.join(',') + ')' : ''));
