@@ -1,5 +1,7 @@
 # NEON STRIKE · 霓虹突袭
 
+[简体中文](README.md) | [English](README.en.md)
+
 赛博朋克风格网页打飞机游戏。零依赖、零构建,双击即可玩;已内置 Android 打包工程与 Windows 桌面版(WebView2 壳),可一键产出安装包。
 
 **当前版本:v1.7.0**
