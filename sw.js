@@ -1,5 +1,5 @@
 /* NEON STRIKE Service Worker — 离线缓存 */
-const CACHE = 'neon-strike-v1.7.0';
+const CACHE = 'neon-strike-v1.7.0-workshop-1';
 const ASSETS = [
   './',
   './index.html',
@@ -16,7 +16,9 @@ const ASSETS = [
   './js/render.js',
   './js/input.js',
   './js/hangar.js',
-  './js/game.js'
+  './js/game.js',
+  './js/workshop.js',
+  './js/bootstrap.js'
 ];
 
 self.addEventListener('install', (e) => {

@@ -1166,6 +1166,12 @@
   }
 
   /* ---- 主循环 ---- */
+  function modSnapshot() {
+    return {state:STATE, mode:MODE, difficulty:DIFFICULTY, score:score, wave:wave, level:level,
+      width:W, height:H, empCooldown:empCooldown,
+      player:player?{x:player.x,y:player.y,hp:player.hp,lives:player.lives,shield:player.shield,ship:player.ship,weaponId:player.weaponId}:null,
+      boss:boss?{kind:boss.kind,hp:boss.hp,maxHp:boss.maxHp,phase:boss.phase}:null};
+  }
   var lastT = 0;
   function loop(ts) {
     var dt = Math.min((ts - lastT) / 1000, 0.05); /* 钳制防切页跳帧 */
@@ -1174,6 +1180,10 @@
     layoutBattlefield();
     A.updateMusic(STATE === 'playing' && boss ? boss.kind : null, boss ? boss.phase : 1);
     draw();
+    if (DFJ.Workshop) {
+      DFJ.Workshop.publish(modSnapshot(), dt);
+      DFJ.Workshop.draw(ctx, modSnapshot());
+    }
     if(STATE==='start'&&DFJ.Hangar)DFJ.Hangar.draw(now/1000);
     requestAnimationFrame(loop);
   }
@@ -1220,6 +1230,10 @@
   };
 
   /* ---- 启动 ---- */
+  var started = false;
+  DFJ.start = function () {
+  if (started) return;
+  started = true;
   cacheDom();
   resize();
   loadHi();
@@ -1229,5 +1243,7 @@
   if(DFJ.Hangar)DFJ.Hangar.init();
   setPanel('panel-start');
   updateHUD();
+  if (DFJ.Workshop) DFJ.Workshop.publish(modSnapshot(), 0, true);
   requestAnimationFrame(function (ts) { lastT = ts; loop(ts); });
+  };
 })();

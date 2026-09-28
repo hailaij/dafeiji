@@ -118,7 +118,13 @@
   <script src="js/render.js"></script>
   <script src="js/input.js"></script>
   <script src="js/hangar.js"></script>
+  <script src="js/workshop.js"></script>
   <script src="js/game.js"></script>
+  <script>
+    window.__neonWorkshopLoader = new Promise(function (resolve) { window.__neonWorkshopLoaded = resolve; });
+  </script>
+  <script async src="https://gamesvibe.app/workshop/loader/v1.js" onload="window.__neonWorkshopLoaded(true)" onerror="window.__neonWorkshopLoaded(false)"></script>
+  <script src="js/bootstrap.js"></script>
   <script>
     // PWA Service Worker 注册(仅 http/https 环境,file:// 下自动跳过)
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {

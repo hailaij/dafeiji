@@ -8,6 +8,8 @@
 
 ## 当前功能
 
+- VibeHub 创意工坊接入：提供飞机装饰光环、只读战斗仪表与生命周期事件，采用 `mods-disabled` 联机策略。开发接口、最小 Mod 和兼容边界见 [工坊开发说明](WORKSHOP.md)。
+
 - 手机 HUD 压缩：普通战斗顶部约 53px、竖屏 Boss 战约 95px，保留关键战斗状态；详情移至暂停页，横屏恢复 Boss 技能提示。[十种尺寸验证](docs/reports/mobile-hud.md)。
 
 - v1.7.0 EMP 优化：保持 10 秒基础冷却，增加 0.25 秒释放保护、清弹数量/范围反馈、Boss 干扰提示与末秒小数；暂停和选卡不再恢复冷却。[说明与 282 局复测](docs/reports/emp-improvements.md)。
