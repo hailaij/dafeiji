@@ -1,0 +1,14 @@
+[
+  {
+    "id": "visual.player-marker",
+    "name": "飞机装饰光环",
+    "description": "通过注册接口在玩家飞机周围绘制本地装饰圆环，自定义颜色和半径；不改变机型、碰撞范围、护盾或战斗数值。",
+    "multiplayer": "local"
+  },
+  {
+    "id": "hud.readout",
+    "name": "战斗文字仪表",
+    "description": "读取不可变战斗快照和生命周期事件，注册额外文字仪表；不修改私有DOM、输入、存档、分数或游戏规则。",
+    "multiplayer": "local"
+  }
+]

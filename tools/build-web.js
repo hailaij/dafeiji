@@ -6,7 +6,7 @@ const root = path.resolve(__dirname, '..');
 const out = path.join(root, '.local', 'web-dist');
 fs.rmSync(out, {recursive: true, force: true});
 fs.mkdirSync(out, {recursive: true});
-for (const file of ['index.html', 'style.css', 'manifest.json', 'sw.js']) {
+for (const file of ['index.html', 'style.css', 'manifest.json', 'sw.js', 'WORKSHOP.md', 'WORKSHOP_CAPABILITIES.json']) {
   fs.copyFileSync(path.join(root, file), path.join(out, file));
 }
 for (const [directory, extension] of [['js', '.js'], ['icons', '.png']]) {

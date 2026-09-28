@@ -12,6 +12,8 @@ This is the English project guide. In-game labels and the linked design and test
 
 ## Features
 
+- VibeHub Workshop integration provides decorative player rings, read-only combat readouts, and lifecycle events through a versioned Mod API. Multiplayer policy is `mods-disabled`. See the [Workshop guide (Chinese)](WORKSHOP.md).
+
 - Choose an aircraft and weapon independently: three aircraft (游隼 / Peregrine, 壁垒 / Bulwark, 灵翼 / Spirit Wing) and three weapons (Pulse, Heavy Shot, Spread) offer nine combinations with a live firing preview.
 - Five game modes, three difficulty levels, 14 regular enemy designs, and 11 Bosses with distinct attack patterns and synthesized battle music.
 - Roguelike upgrades, six weapon evolutions, repair/supply/elite routes, and three compatible build synergies: weak-point execution, electromagnetic circuit, and thorn regeneration.
