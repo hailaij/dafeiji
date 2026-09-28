@@ -4,7 +4,7 @@
 
 赛博朋克风格网页打飞机游戏。零依赖、零构建,双击即可玩;已内置 Android 打包工程与 Windows 桌面版(WebView2 壳),可一键产出安装包。
 
-**当前版本:v1.7.0**
+**当前版本:v1.8.0**
 
 ## 当前功能
 
@@ -44,7 +44,7 @@
 
 ### Android APK
 
-已打包产物:**`android/dist/neon-strike-v1.7.0.apk`**（Android 7.0+，离线运行）。
+已打包产物:**`android/dist/neon-strike-v1.8.0.apk`**（Android 7.0+，离线运行）。
 
 构建 APK 后传到安卓手机,开启「允许安装未知来源」后直接安装即可。游戏完全离线运行,无网络权限。
 
@@ -62,7 +62,7 @@ cd android
 
 ### Windows 桌面版
 
-已打包产物:**`win/dist/neon-strike-v1.7.0-win64.exe`**(≈69 MB,Win10/11 x64)
+已打包产物:**`win/dist/neon-strike-v1.8.0-win64.exe`**(≈69 MB,Win10/11 x64)
 
 单文件自包含,双击即玩,无需安装 .NET(仅需系统自带 WebView2 运行时);游戏资产内嵌 exe,完全离线运行。
 
@@ -197,13 +197,13 @@ dafeiji/
 │   │   ├── assets/www/              # 离线游戏资产(与根目录同步)
 │   │   └── res/                     # 图标/主题/字符串
 │   └── dist/                        # APK 产物
-│       └── neon-strike-v1.7.0.apk    # Android 安装包
+│       └── neon-strike-v1.8.0.apk    # Android 安装包
 ├── win/                             # Windows 桌面版(WebView2 壳)
 │   ├── build-local.ps1              # 一键构建脚本
 │   ├── NeonStrike.csproj            # .NET 8 WinForms 工程
 │   ├── assets/www/                  # 离线游戏资产(与根目录同步)
 │   └── dist/                        # exe 产物
-│       └── neon-strike-v1.7.0-win64.exe
+│       └── neon-strike-v1.8.0-win64.exe
 ├── docs/                            # 项目文档（入口 docs/README.md）
 │   ├── design/                     # 游戏与 Boss 设计
 │   └── reports/                    # 平衡审计、玩法与敌人扩展报告
@@ -223,6 +223,23 @@ dafeiji/
 若 Git 报 `Recv failure: Connection was reset` 或直连 GitHub 超时，而本机代理可正常访问，请先用 `git -c http.proxy=http://127.0.0.1:<实际端口> ls-remote origin refs/heads/main` 验证代理。确认成功后，可通过 `git config --local remote.origin.proxy http://127.0.0.1:<实际端口>` 仅为当前仓库保存设置。代理必须处于运行状态；恢复直连可执行 `git config --local --unset remote.origin.proxy`。不要关闭 TLS 证书校验。
 
 ## 更新日志
+
+## [1.8.0] - 2026-09-28
+### 新增
+- 接入 VibeHub 创意工坊，开放飞机装饰光环、只读战斗文字仪表和生命周期事件，公共 Mod API 版本为 1.0.0
+- 新增 WORKSHOP.md 开发规范与结构化能力目录，包含最小 Mod、加载阶段、依赖、冲突及兼容规则
+- 新增英文 README 与语言切换入口；VibeHub 共创、GitHub 自动部署和默认分支保护已配置
+### 优化
+- 拆分 API 建立与游戏启动：等待 beforeStart 后初始化，调用 markGameReady 后等待 afterStart
+- 托管版本 Loader 失败明确报错；本地及离线版本不等待工坊网络，保留原版操作
+- 通过只读快照、唯一注册 ID、回调异常隔离和注销函数限制公共接口范围
+### 验证
+- 工坊启动阶段、快照不可变性、重复 ID、离线启动和联机守卫测试通过；战斗、EMP、十种 HUD 尺寸及 Boss 音频回归通过
+- 工坊能力目录是开发约定，不是安全沙箱；当前游戏为单机，联机策略为 mods-disabled，未来联机入口须拒绝所有已启用 Mod
+- 安装包本次未进行真机安装验收
+### 变更
+- Android versionCode 16，网页、Android 与 Windows 版本统一为 1.8.0；Mod API 独立保持 1.0.0
+- 同步离线缓存和两端运行资源；工坊 Mod 由 VibeHub 启动页加载，APK/EXE 不提供平台 Mod 选择入口
 
 ## [1.7.0] - 2026-09-27
 ### 新增

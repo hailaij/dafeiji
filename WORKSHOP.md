@@ -1,6 +1,6 @@
 # NEON STRIKE · 霓虹突袭 创意工坊
 
-项目 slug：`neon-strike`。公共 API：`window.NeonStrikeMods`，API 版本 `1.0.0`，适用于 v1.7.0 的工坊更新及保持 API v1 的后续版本。旧 v1.7.0 安装包没有此接口，必须检测 `apiVersion`，不能只检测游戏版本。游戏目前是单机，没有房间或联机入口。
+项目 slug：`neon-strike`。公共 API：`window.NeonStrikeMods`，API 版本 `1.0.0`，当前正式游戏版本为 v1.8.0，也兼容此前 v1.7.0 的工坊预接入及保持 API v1 的后续版本。旧 v1.7.0 安装包没有此接口，必须检测 `apiVersion`，不能只检测游戏版本。游戏目前是单机，没有房间或联机入口。
 
 ## 可以制作的 Mod
 

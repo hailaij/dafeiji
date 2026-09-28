@@ -4,9 +4,9 @@
 
 A cyberpunk arcade shooter built with HTML, CSS, and JavaScript. The browser game has no runtime dependencies or build step. Android and Windows wrapper projects are included for offline desktop and mobile play.
 
-**Current version: v1.7.0**
+**Current version: v1.8.0**
 
-[Play online](https://hailaij.github.io/dafeiji/) · [Download APK / Windows EXE](https://github.com/hailaij/dafeiji/releases/tag/v1.7.0)
+[Play online](https://hailaij.github.io/dafeiji/) · [Download APK / Windows EXE](https://github.com/hailaij/dafeiji/releases/tag/v1.8.0)
 
 This is the English project guide. In-game labels and the linked design and test reports are currently in Chinese.
 
@@ -37,7 +37,7 @@ Then visit <http://127.0.0.1:8080>. A local server or the hosted site is needed 
 
 ### Android
 
-Download **neon-strike-v1.7.0.apk** from the [release page](https://github.com/hailaij/dafeiji/releases/tag/v1.7.0). Android 7.0 or later is required. Allow installation from the app used to open the APK when prompted. The game runs offline and requests no network permission. The published APK uses a debug signing certificate.
+Download **neon-strike-v1.8.0.apk** from the [release page](https://github.com/hailaij/dafeiji/releases/tag/v1.8.0). Android 7.0 or later is required. Allow installation from the app used to open the APK when prompted. The game runs offline and requests no network permission. The published APK uses a debug signing certificate.
 
 To rebuild, prepare JDK 17 and the Android SDK as described in [Android build instructions (Chinese)](android/README.md), then run from the repository root:
 
@@ -46,11 +46,11 @@ To rebuild, prepare JDK 17 and the Android SDK as described in [Android build in
 .\android\build-local.ps1
 ```
 
-Output: `android/dist/neon-strike-v1.7.0.apk`.
+Output: `android/dist/neon-strike-v1.8.0.apk`.
 
 ### Windows
 
-Download **neon-strike-v1.7.0-win64.exe** from the [release page](https://github.com/hailaij/dafeiji/releases/tag/v1.7.0). The approximately 69 MiB executable targets **Windows 10/11 x64**. It includes .NET and the game assets, but **requires the Microsoft Edge WebView2 Runtime** to be installed. Windows 7 is not a supported target.
+Download **neon-strike-v1.8.0-win64.exe** from the [release page](https://github.com/hailaij/dafeiji/releases/tag/v1.8.0). The approximately 69 MiB executable targets **Windows 10/11 x64**. It includes .NET and the game assets, but **requires the Microsoft Edge WebView2 Runtime** to be installed. Windows 7 is not a supported target.
 
 To rebuild, prepare .NET SDK 8 or later as described in [Windows build instructions (Chinese)](win/README.md), then run from the repository root:
 
@@ -59,7 +59,7 @@ To rebuild, prepare .NET SDK 8 or later as described in [Windows build instructi
 .\win\build-local.ps1
 ```
 
-Output: `win/dist/neon-strike-v1.7.0-win64.exe`. The synchronization script updates both wrapper projects from the root web source.
+Output: `win/dist/neon-strike-v1.8.0-win64.exe`. The synchronization script updates both wrapper projects from the root web source.
 
 ## Controls
 
@@ -211,6 +211,27 @@ Keep the proxy running while using it. Restore direct access with `git config --
 [MIT](LICENSE).
 
 ## Changelog
+
+### [1.8.0] — 2026-09-28
+
+#### Added
+
+- VibeHub Workshop integration with decorative player rings, read-only combat readouts, and lifecycle events through Mod API 1.0.0.
+- Workshop developer guide, capability catalog, minimal Mod example, dependency rules, and compatibility guidance.
+- English README and language navigation; VibeHub collaboration, GitHub deployment, and default-branch protection.
+
+#### Improved
+
+- Public API setup is separate from game startup: wait for beforeStart, initialize the game, call markGameReady, then wait for afterStart.
+- Hosted Loader failures produce an explicit error; local and offline versions start without waiting for Workshop networking.
+- Immutable snapshots, unique registration IDs, callback isolation, and unregister functions define a small public interface.
+
+#### Validation and packaging
+
+- Workshop lifecycle, snapshots, duplicate IDs, offline startup, multiplayer guard, combat, EMP, ten HUD sizes, and Boss audio regressions passed.
+- Capability declarations are not a sandbox. The game is currently single-player; mods-disabled requires any future multiplayer entry to reject all enabled Mods.
+- Android versionCode 16; web, Android, and Windows versions are 1.8.0. Mod API remains 1.0.0.
+- Workshop Mods load through VibeHub; native packages have no platform Mod-selection screen. Physical-device installation acceptance has not been performed for this release.
 
 ### [1.7.0] — 2026-09-27
 
